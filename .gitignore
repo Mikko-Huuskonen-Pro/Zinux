@@ -1,0 +1,8 @@
+# Zig build artefaktit — ei versionhallintaan.
+.zig-cache/
+zig-out/
+
+# Editorit
+.idea/
+.vscode/
+*.swp

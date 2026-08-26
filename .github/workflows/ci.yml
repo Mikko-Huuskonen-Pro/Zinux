@@ -1,0 +1,27 @@
+# CI — Zinux kernel build & test pipeline.
+# Ajaa jokaisella push/PR:llä host-testit; kernel-build kun Zig asennettuna.
+
+name: CI
+
+# Käynnistä workflow push- ja pull request -tapahtumissa main-haaraan.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Host-yksikkötestit — ei vaadi QEMU:ta eikä cross-compilea.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Hae repositorion lähdekoodi checkout-toiminnolla.
+      - uses: actions/checkout@v4
+      # Asenna Zig 0.14.0 — sama versio kuin .zigversion-tiedostossa.
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      # Aja host-yksikkötestit build.zig test-stepillä.
+      - run: zig build test
+      # Käännä freestanding kernel varmistaaksemme ettei syntaksivirheitä.
+      - run: zig build
