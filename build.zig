@@ -38,6 +38,12 @@ pub fn build(b: *std.Build) void {
     kernel_mod.stack_protector = false;
     kernel_mod.code_model = .kernel;
     kernel_mod.single_threaded = true;
+    const abi_mod = b.createModule(.{
+        .root_source_file = b.path("libs/zinuxabi.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    kernel_mod.addImport("zinuxabi", abi_mod);
 
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
@@ -46,6 +52,7 @@ pub fn build(b: *std.Build) void {
     kernel.setLinkerScript(b.path("linker.ld"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/context_switch.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/timer_irq.S"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/syscall_entry.S"));
     b.installArtifact(kernel);
 
     // --- Host-testit ---

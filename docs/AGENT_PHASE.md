@@ -24,9 +24,11 @@
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. **4.1** Syscall entry (`kernel/arch/x86_64/syscall.zig`)
-2. **4.2** Syscall dispatch -taulu (`kernel/syscall/dispatch.zig`)
-3. Kun vaihe valmis → nosta **Nykyinen vaihe** → **5**
+1. ~~**4.1** Syscall entry~~ ✅
+2. ~~**4.2** Syscall dispatch -taulu~~ ✅
+3. **4.3** Capability-rakenne (`kernel/ipc/capability.zig`)
+4. **4.5** Ring 3 siirtymä (usermode hello → sys_write)
+5. Kun vaihe 4 kokonaan valmis → nosta **Nykyinen vaihe** → **5**
 
 ---
 

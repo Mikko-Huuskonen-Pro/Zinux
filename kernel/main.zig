@@ -36,6 +36,10 @@ const scheduler = @import("sched/scheduler.zig");
 const smp = @import("boot/smp.zig");
 // Tuo PIT ticks — linkittää timerOnIrqC timer_irq.S:lle.
 const pit_ticks = @import("lib/pit_ticks.zig");
+// Tuo SYSCALL MSR-alustus (Vaihe 4.1).
+const syscall = @import("arch/x86_64/syscall.zig");
+// Tuo syscall dispatch — handler-taulukko (Vaihe 4.2).
+const dispatch = @import("syscall/dispatch.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -71,6 +75,10 @@ fn kmain() noreturn {
     idt.init();
     // Vahvista IDT-alustus onnistui.
     log.info("IDT initialized");
+    // Alusta SYSCALL MSRs (STAR/LSTAR/SFMASK + EFER.SCE) — IDT:n jälkeen.
+    syscall.init();
+    // Vahvista syscall entry -osoite on asetettu.
+    log.info("Syscall MSRs initialized");
     // Hae Limine boot-info (HHDM offset jne.).
     const boot_info = limine_boot.getBootInfo();
     // Alusta PMM Limine-muistikartasta tai fallback 256 MiB.
@@ -104,6 +112,8 @@ fn kmain() noreturn {
     memtest.runAll();
     // Boot on valmis — CI etsii tämän merkkijonon serialista.
     log.info("Zinux boot OK");
+    // Vaihe 4.2 — dispatch boot-testi (sys_write → serial "SY").
+    dispatch.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);
