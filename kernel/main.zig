@@ -44,6 +44,8 @@ const dispatch = @import("syscall/dispatch.zig");
 const capability = @import("ipc/capability.zig");
 // Tuo IPC-portit (Vaihe 4.4).
 const port = @import("ipc/port.zig");
+// Tuo ring 3 usermode (Vaihe 4.5).
+const usermode = @import("arch/x86_64/usermode.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -122,6 +124,8 @@ fn kmain() noreturn {
     capability.runBootTest();
     // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
     port.runBootTest();
+    // Vaihe 4.5 — ring 3 sys_write("hello") SYSCALL:lla.
+    usermode.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);

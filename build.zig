@@ -53,6 +53,8 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/context_switch.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/timer_irq.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/syscall_entry.S"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_entry.S"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_jump.S"));
     b.installArtifact(kernel);
 
     // --- Host-testit ---

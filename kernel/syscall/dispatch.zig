@@ -10,6 +10,8 @@ const abi = @import("zinuxabi");
 const uart = @import("../drivers/char/uart.zig");
 // Tuo lokitus boot-testiin.
 const log = @import("../lib/log.zig");
+// Tuo usermode — ring 3 paluu boot-testiin.
+const usermode = @import("../arch/x86_64/usermode.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -76,6 +78,12 @@ fn sysGetpid(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return 1;
 }
 
+// sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
+fn sysTestReturn(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Vaihda boot-pinon osoitteeseen ja hyppää runBootTest-jatkoon.
+    usermode.returnToKernelTestContinue();
+}
+
 // Dispatch-taulukko — indeksi = syscall-numero (max 31).
 const handlers: [32]?SyscallFn = blk: {
     // Alusta kaikki merkinnät tyhjiksi.
@@ -86,6 +94,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_exit)] = sysExit;
     // Rekisteröi sys_getpid.
     table[@intCast(abi.SYS_getpid)] = sysGetpid;
+    // Rekisteröi sys_test_return (ring 3 boot-paluu).
+    table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Palauta valmis taulukko.
     break :blk table;
 };

@@ -175,6 +175,16 @@ const TABLE_FLAGS = PageFlags{
     .user = 0,
 };
 
+// Liput käyttäjäpolun sivutauluille — U=1 kaikilla tasoilla (ring 3 pääsy).
+const USER_TABLE_FLAGS = PageFlags{
+    // Sivutaulu on present.
+    .present = 1,
+    // Sivutaulu on kirjoitettavissa.
+    .writable = 1,
+    // Ring 3 saa käyttää tätä sivutaulupolkua.
+    .user = 1,
+};
+
 // Nollaa 4 KiB kehys HHDM-virtuaaliosoitteella.
 fn zeroFrame(phys: u64, hhdm: u64) void {
     // Muunna fyysinen kehys HHDM-virtuaaliosoitteeksi.
@@ -186,7 +196,7 @@ fn zeroFrame(phys: u64, hhdm: u64) void {
 }
 
 // Varmista että sivutaulumerkintä osoittaa kehykseen — allokoi tarvittaessa.
-fn ensureEntry(entry: *PageTableEntry, hhdm: u64, alloc_frame: FrameAllocFn) bool {
+fn ensureEntry(entry: *PageTableEntry, hhdm: u64, alloc_frame: FrameAllocFn, table_flags: PageFlags) bool {
     // Jos merkintä on jo present, ei tarvitse tehdä mitään.
     if (entry.isPresent()) return true;
     // Pyydä PMM:stä uusi 4 KiB kehys sivutaululle.
@@ -194,9 +204,16 @@ fn ensureEntry(entry: *PageTableEntry, hhdm: u64, alloc_frame: FrameAllocFn) boo
     // Nollaa uusi sivutaulu — kaikkien PTE:iden pitää aluksi olla 0.
     zeroFrame(phys, hhdm);
     // Kirjoita merkintä osoittamaan uuteen sivutauluun.
-    entry.* = PageTableEntry.fromPhys(phys, TABLE_FLAGS);
+    entry.* = PageTableEntry.fromPhys(phys, table_flags);
     // Onnistui — seuraava taso on nyt saatavilla.
     return true;
+}
+
+// Aseta user-bitti (U=1) yhdelle sivutaulumerkinnälle.
+fn setEntryUserBit(entry: *PageTableEntry) void {
+    // Kirjoita raakana — OR bitti 2 (user/supervisor).
+    const raw: *volatile u64 = @ptrCast(entry);
+    raw.* = raw.* | 0x4;
 }
 
 // Kartoita yksi 4 KiB sivu — luo puuttuvat PT/PD/PDPT-tasot PMM:stä.
@@ -208,24 +225,53 @@ pub fn mapPageEnsure(
     flags: PageFlags,
     alloc_frame: FrameAllocFn,
 ) bool {
+    // Käytä kernel-only sivutaululippuja (oletus).
+    return mapPageEnsureWithTables(pml4_phys, hhdm, virt, phys, flags, alloc_frame, TABLE_FLAGS);
+}
+
+// Kartoita yksi 4 KiB käyttäjäsivu — koko polku U=1 (ring 3 pääsy).
+pub fn mapUserPageEnsure(
+    pml4_phys: u64,
+    hhdm: u64,
+    virt: u64,
+    phys: u64,
+    flags: PageFlags,
+    alloc_frame: FrameAllocFn,
+) bool {
+    // Käytä user-sivutaululippuja kaikilla luoduilla tasoilla.
+    return mapPageEnsureWithTables(pml4_phys, hhdm, virt, phys, flags, alloc_frame, USER_TABLE_FLAGS);
+}
+
+// Kartoita yksi 4 KiB sivu — valittavilla sivutaululipuilla.
+fn mapPageEnsureWithTables(
+    pml4_phys: u64,
+    hhdm: u64,
+    virt: u64,
+    phys: u64,
+    flags: PageFlags,
+    alloc_frame: FrameAllocFn,
+    table_flags: PageFlags,
+) bool {
     // Hae PML4-taulu HHDM:n kautta.
     const pml4 = physToVirt(pml4_phys, hhdm);
     // Valitse oikea PML4-merkintä virtuaaliosoitteen perusteella.
     const pml4e = &pml4[pml4Index(virt)];
     // Luo PML4-merkintä ja PDPT jos puuttuu (uusi virtuaalinen alue).
-    if (!ensureEntry(pml4e, hhdm, alloc_frame)) return false;
+    if (!ensureEntry(pml4e, hhdm, alloc_frame, table_flags)) return false;
     // Seuraa PDPT-tasolle.
     const pdpt = physToVirt(pml4e.physicalAddr(), hhdm);
     // Valitse PDPT-merkintä.
     const pdpte = &pdpt[pdptIndex(virt)];
     // Luo PDPT-merkintä jos puuttuu.
-    if (!ensureEntry(pdpte, hhdm, alloc_frame)) return false;
+    if (!ensureEntry(pdpte, hhdm, alloc_frame, table_flags)) return false;
     // Seuraa PD-tasolle.
     const pd = physToVirt(pdpte.physicalAddr(), hhdm);
     // Valitse PD-merkintä.
     const pde = &pd[pdIndex(virt)];
     // Luo PD-merkintä jos puuttuu.
-    if (!ensureEntry(pde, hhdm, alloc_frame)) return false;
+    if (!ensureEntry(pde, hhdm, alloc_frame, table_flags)) return false;
+    // 2 MiB huge page — ei voi kirjoittaa 4 KiB PTE:hen ilman splittausta.
+    if (pde.huge == 1) return false;
     // Seuraa PT-tasolle.
     const pt = physToVirt(pde.physicalAddr(), hhdm);
     // Valitse lopullinen PTE-merkintä.
@@ -264,6 +310,60 @@ pub fn mapPage(pml4_phys: u64, hhdm: u64, virt: u64, phys: u64, flags: PageFlags
     pte.* = PageTableEntry.fromPhys(phys, flags);
     // Onnistui ilman uusien taulujen luontia.
     return true;
+}
+
+// Palauta PTE:n raaka u64 (debug / NX-tarkistus).
+pub fn getPteRaw(pml4_phys: u64, hhdm: u64, virt: u64) ?u64 {
+    // Kävele sivutaulut lopulliseen PTE:hen.
+    const pml4 = physToVirt(pml4_phys, hhdm);
+    const pml4e = pml4[pml4Index(virt)];
+    if (pml4e.present == 0) return null;
+    const pdpt = physToVirt(pml4e.physicalAddr(), hhdm);
+    const pdpte = pdpt[pdptIndex(virt)];
+    if (pdpte.present == 0) return null;
+    const pd = physToVirt(pdpte.physicalAddr(), hhdm);
+    const pde = pd[pdIndex(virt)];
+    if (pde.present == 0 or pde.huge == 1) return null;
+    const pt = physToVirt(pde.physicalAddr(), hhdm);
+    const pte = &pt[ptIndex(virt)];
+    if (pte.present == 0) return null;
+    // Palauta raaka PTE ilman packed struct -muunnosta.
+    const pte_raw: *u64 = @ptrCast(pte);
+    return pte_raw.*;
+}
+
+// Aseta koko sivutuspolku user-käyttöön; valinnainen NX-poisto lehti-PTE:stä.
+pub fn setUserPagePath(pml4_phys: u64, hhdm: u64, virt: u64, executable: bool) bool {
+    // Kävele sivutaulut lopulliseen PTE:hen.
+    const pml4 = physToVirt(pml4_phys, hhdm);
+    const pml4e = &pml4[pml4Index(virt)];
+    if (pml4e.present == 0) return false;
+    setEntryUserBit(pml4e);
+    const pdpt = physToVirt(pml4e.physicalAddr(), hhdm);
+    const pdpte = &pdpt[pdptIndex(virt)];
+    if (pdpte.present == 0) return false;
+    setEntryUserBit(pdpte);
+    const pd = physToVirt(pdpte.physicalAddr(), hhdm);
+    const pde = &pd[pdIndex(virt)];
+    if (pde.present == 0 or pde.huge == 1) return false;
+    setEntryUserBit(pde);
+    const pt = physToVirt(pde.physicalAddr(), hhdm);
+    const pte = &pt[ptIndex(virt)];
+    if (pte.present == 0) return false;
+    setEntryUserBit(pte);
+    if (executable) {
+        const pte_raw: *volatile u64 = @ptrCast(pte);
+        const frame = pte_raw.* & 0x000FFFFFFFFFF000;
+        pte_raw.* = frame | 0x7;
+    }
+    flushTlb(virt);
+    setCr3(getCr3());
+    return true;
+}
+
+// Aseta PTE user-bitti ja poista NX — varmistus ring 3 -sivuille (vanha nimi).
+pub fn setPteUserExecutable(pml4_phys: u64, hhdm: u64, virt: u64) bool {
+    return setUserPagePath(pml4_phys, hhdm, virt, true);
 }
 
 // TLB flush yhdelle sivulle — pakollinen PTE-muutoksen jälkeen.

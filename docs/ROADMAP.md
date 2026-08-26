@@ -82,7 +82,7 @@ zig build run
 
 ---
 
-## Vaihe 4 — Syscalls & IPC
+## Vaihe 4 — Syscalls & IPC ✅
 
 **Tavoite**: Käyttäjätilan prosessi voi kutsua kerneliä; capability-malli.
 
@@ -92,10 +92,10 @@ zig build run
 | 4.2 | Syscall dispatch -taulu | `kernel/syscall/dispatch.zig` | ✅ write/exit/getpid + boot-testi |
 | 4.3 | Capability-rakenne | `kernel/ipc/capability.zig` | ✅ create/delegate/revoke + boot-testi |
 | 4.4 | IPC-portit (send/recv) | `kernel/ipc/port.zig` | ✅ rengasjono + cap send/recv + boot-testi |
-| 4.5 | Ring 3 siirtymä | `kernel/arch/x86_64/usermode.zig` | ⬜ |
+| 4.5 | Ring 3 siirtymä | `kernel/arch/x86_64/usermode.zig` | ✅ iretq + SYSCALL hello + test_return |
 | 4.6 | Jaettu ABI | `libs/zinuxabi.zig` | ✅ syscall-numerot + virhekoodit |
 
-**Testi**: Käyttäjätilan "hello" -binääri kutsuu `sys_write` → serial output.
+**Testi**: Ring 3 `sys_write("hello")` → serial + `Usermode test OK` ✅
 
 ---
 

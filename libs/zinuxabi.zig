@@ -10,6 +10,12 @@ pub const SYS_write: u64 = 1;
 pub const SYS_exit: u64 = 2;
 // Syscall-numero: sys_getpid() → prosessitunniste (stub 1).
 pub const SYS_getpid: u64 = 3;
+// Syscall-numero: sys_ipc_send (stub myöhemmin).
+pub const SYS_ipc_send: u64 = 4;
+// Syscall-numero: sys_ipc_recv (stub myöhemmin).
+pub const SYS_ipc_recv: u64 = 5;
+// Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
+pub const SYS_test_return: u64 = 10;
 
 // Virhekoodit (negatiiviset paluuarvot, Linux-yhteensopiva tyyli).
 pub const EINVAL: i64 = -22;

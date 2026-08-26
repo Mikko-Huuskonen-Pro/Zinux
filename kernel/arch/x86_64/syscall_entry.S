@@ -38,6 +38,9 @@ syscallEntry:
     pop %r12
     pop %rbx
     pop %rbp
+    // Palauta user RIP/RFLAGS kehyksestä — C-kutsu voi clobberoida RCX/R11.
+    mov 56(%rsp), %rcx
+    mov 64(%rsp), %r11
     // Poista kehys pinolta.
     add $80, %rsp
     // Lataa käyttäjän RSP.

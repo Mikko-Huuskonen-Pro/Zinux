@@ -67,6 +67,26 @@ pub fn mapNewPage(virt: u64, flags: paging.PageFlags) bool {
     return mapPage(virt, phys, flags);
 }
 
+// Allokoi kehys ja kartoita — luo sivutaulut tarvittaessa (käyttäjäpolku U=1).
+pub fn mapNewUserPageEnsure(virt: u64, flags: paging.PageFlags) bool {
+    // Allokoi fyysinen kehys bitmapista.
+    const frame = pmm.allocFrame() orelse return false;
+    // Muunna kehysindeksi fyysiseksi osoitteeksi.
+    const phys = pmm.frameToPhys(frame);
+    // Kartoita kehys luoden user-sivutaulut.
+    const ok = paging.mapUserPageEnsure(
+        kernel_pml4_phys,
+        hhdm_offset,
+        virt,
+        phys,
+        flags,
+        allocFramePhys,
+    );
+    // Flushaa TLB uuden kartoituksen jälkeen.
+    if (ok) paging.flushTlb(virt);
+    return ok;
+}
+
 // Allokoi kehys ja kartoita — luo sivutaulut tarvittaessa.
 pub fn mapNewPageEnsure(virt: u64, flags: paging.PageFlags) bool {
     // Allokoi fyysinen kehys bitmapista.

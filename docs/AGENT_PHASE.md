@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **4** (Syscalls & IPC) ⬜
+## Nykyinen vaihe: **5** (Käyttäjätila) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -19,23 +19,21 @@
 | 1 Boot & tulostus | ✅ |
 | 2 Muistinhallinta | ✅ |
 | 3 Prosessit & aikataulutus | ✅ |
+| 4 Syscalls & IPC | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 4)
+### Tämän kierroksen prioriteetti (Vaihe 5)
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. ~~**4.1** Syscall entry~~ ✅
-2. ~~**4.2** Syscall dispatch -taulu~~ ✅
-3. ~~**4.3** Capability-rakenne~~ ✅
-4. ~~**4.4** IPC-portit~~ ✅
-5. **4.5** Ring 3 siirtymä (usermode hello → sys_write)
-6. Kun vaihe 4 kokonaan valmis → nosta **Nykyinen vaihe** → **5**
+1. **5.1** ELF-loader kernelissä (`kernel/loader/elf.zig`)
+2. **5.2** init-prosessi (`userland/init/main.zig`)
+3. Kun vaihe valmis → nosta **Nykyinen vaihe** → **6**
 
 ---
 
-## Seuraava vaihe kun 4 on ✅: **5** (Käyttäjätila)
+## Seuraava vaihe kun 5 on ✅: **6** (Ajurit & tiedostojärjestelmä)
 
-Katso `docs/ROADMAP.md` — aloita kohdasta 5.1.
+Katso `docs/ROADMAP.md` — aloita kohdasta 6.1.
 
 ---
 

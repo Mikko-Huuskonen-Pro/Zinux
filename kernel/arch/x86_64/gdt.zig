@@ -47,8 +47,58 @@ const GdtPointer = packed struct {
     base: u64,
 };
 
-// GDT-taulukko — 5 merkintää: null, kernel code, kernel data, user code, user data.
-var gdt: [5]GdtEntry = undefined;
+// GDT-taulukko — 7 merkintää: null, kcode, kdata, udata, ucode, TSS (2 slotia).
+var gdt: [7]GdtEntry = undefined;
+
+// 64-bit TSS — ring 3 poikkeukset käyttävät rsp0:aa kernel-pinoksi.
+const Tss = extern struct {
+    // Varattu — x86_64 TSS aloitus.
+    reserved0: u32 = 0,
+    // Ring 0 pinon yläreuna kun keskeytys tulee ring 3:sta.
+    rsp0: u64 = 0,
+    // Ring 1 pinon yläreuna (ei käytössä).
+    rsp1: u64 = 0,
+    // Ring 2 pinon yläreuna (ei käytössä).
+    rsp2: u64 = 0,
+    // Varattu.
+    reserved1: u64 = 0,
+    // IST1..7 — ei käytössä vielä.
+    ist1: u64 = 0,
+    ist2: u64 = 0,
+    ist3: u64 = 0,
+    ist4: u64 = 0,
+    ist5: u64 = 0,
+    ist6: u64 = 0,
+    ist7: u64 = 0,
+    // Varattu.
+    reserved2: u64 = 0,
+    // Varattu.
+    reserved3: u32 = 0,
+    // I/O permission bitmap offset — tss-koko = ei bitmapia.
+    iopb_offset: u16 = @sizeOf(Tss),
+};
+
+// TSS-rakenne — export ltr:lle.
+var tss: Tss = .{};
+// Ring 0 pinon tila — poikkeus ring 3:sta hyppää tähän pinoon.
+var tss_stack: [4096]u8 align(16) linksection(".bss") = undefined;
+
+// TSS GDT-valitsin (indeksi 5 → 0x28) — korvaa Liminen TR=0x38.
+pub const TSS_SEL: u16 = 0x28;
+
+// Kirjoita 128-bittinen TSS-kuvaus GDT:hen (kaksi peräkkäistä merkintää).
+fn setTssDescriptor(idx: usize, base: u64, limit: u32) void {
+    // TSS-kuvauksen ensimmäinen puoli (indeksi idx).
+    gdt[idx].limit_low = @truncate(limit);
+    gdt[idx].base_low = @truncate(base);
+    gdt[idx].base_mid = @truncate(base >> 16);
+    gdt[idx].access = 0x89;
+    gdt[idx].granularity = @truncate((limit >> 16) & 0x0F);
+    gdt[idx].base_high = @truncate(base >> 24);
+    // TSS-kuvauksen toinen puoli — base bitit 32..63.
+    const upper: *u64 = @ptrCast(&gdt[idx + 1]);
+    upper.* = @truncate(base >> 32);
+}
 
 // GDT-kuvaus jota lgdt-komento käyttää.
 var gdt_ptr: GdtPointer = undefined;
@@ -58,10 +108,10 @@ var gdt_ptr: GdtPointer = undefined;
 pub const KERNEL_CODE_SEL: u16 = 0x08;
 // Kernel data -segmentti (GDT indeksi 2 → 0x10).
 pub const KERNEL_DATA_SEL: u16 = 0x10;
-// User code -segmentti ring 3:lle (GDT indeksi 3 → 0x18).
-pub const USER_CODE_SEL: u16 = 0x18;
-// User data -segmentti ring 3:lle (GDT indeksi 4 → 0x20).
-pub const USER_DATA_SEL: u16 = 0x20;
+// User data -segmentti ring 3:lle (GDT indeksi 3 → 0x18) — SYSRET: base+8.
+pub const USER_DATA_SEL: u16 = 0x18;
+// User code -segmentti ring 3:lle (GDT indeksi 4 → 0x20) — SYSRET: base+16.
+pub const USER_CODE_SEL: u16 = 0x20;
 
 // Alusta GDT ja lataa se CPU:hen lgdt-komennolla.
 pub fn init() void {
@@ -71,10 +121,14 @@ pub fn init() void {
     gdt[1] = GdtEntry.init(0, 0, 0x9A, 0xA0);
     // Kernel data: present, ring 0, writable (0x92).
     gdt[2] = GdtEntry.init(0, 0, 0x92, 0xA0);
-    // User code: present, ring 3, executable (0xFA) — tuleva user mode.
-    gdt[3] = GdtEntry.init(0, 0, 0xFA, 0xA0);
-    // User data: present, ring 3, writable (0xF2).
-    gdt[4] = GdtEntry.init(0, 0, 0xF2, 0xA0);
+    // User data ennen user codea — SYSCALL/SYSRET vaatii SS=base+8, CS=base+16.
+    gdt[3] = GdtEntry.init(0, 0, 0xF2, 0xA0);
+    // User code: present, ring 3, executable (0xFA).
+    gdt[4] = GdtEntry.init(0, 0, 0xFA, 0xA0);
+    // TSS ring 0 -pino — poikkeukset ring 3:sta (iretq / page fault).
+    tss.rsp0 = @intFromPtr(&tss_stack) + tss_stack.len;
+    // TSS-kuvaus GDT-merkintöihin 5..6.
+    setTssDescriptor(5, @intFromPtr(&tss), @sizeOf(Tss));
     // GDTR.limit = taulukon koko tavuina - 1.
     gdt_ptr.limit = @sizeOf(@TypeOf(gdt)) - 1;
     // GDTR.base = GDT-taulukon osoite muistissa.
@@ -93,4 +147,9 @@ pub fn init() void {
         :
         :
         : .{ .ax = true });
+    // Lataa TSS — korvaa Liminen virheellinen TR=0x38 ring 3 -poikkeuksia varten.
+    asm volatile ("ltr %[sel]"
+        :
+        : [sel] "r" (@as(u16, TSS_SEL)),
+    );
 }

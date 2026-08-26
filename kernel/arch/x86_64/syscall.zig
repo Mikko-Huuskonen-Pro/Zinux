@@ -33,22 +33,19 @@ pub export var syscall_stack: [4096]u8 align(16) linksection(".bss") = undefined
 // Pinon yläreuna (export assemblylle).
 pub export var syscall_stack_top: u64 = 0;
 
-// Kirjoita 64-bit MSR (wrmsr).
+// Kirjoita 64-bit MSR (wrmsr) — yksi asm-lohko estää rekisteriallokaatio-ristiriidat.
 fn wrmsr(msr: u32, value: u64) void {
-    // EDX:EAX = value, ECX = msr.
-    const lo: u32 = @truncate(value);
-    const hi: u32 = @truncate(value >> 32);
-    // Aseta rekisterit ja suorita wrmsr.
+    // ECX=MSR, EDX:EAX=value — value yhdessä 64-bit input-rekisterissä.
     asm volatile (
-        \\mov %[msr_val], %%ecx
-        \\mov %[lo_val], %%eax
-        \\mov %[hi_val], %%edx
+        \\mov %[msr_imm], %%ecx
+        \\mov %[val], %%rax
+        \\mov %%rax, %%rdx
+        \\shr $32, %%rdx
         \\wrmsr
         :
-        : [msr_val] "r" (msr),
-          [lo_val] "r" (lo),
-          [hi_val] "r" (hi),
-    );
+        : [msr_imm] "i" (msr),
+          [val] "r" (value),
+        : .{ .rax = true, .rcx = true, .rdx = true });
 }
 
 // Ota EFER.SCE käyttöön säilyttäen olemassa olevat LME/NXE-bitit.
@@ -69,12 +66,12 @@ fn enableEferSce() void {
 pub fn init() void {
     // Laske syscall pinon yläreuna.
     syscall_stack_top = @intFromPtr(&syscall_stack) + syscall_stack.len;
-    // STAR: SYSRET user CS (ring 3) yläosaan, SYSCALL kernel CS alaosaan.
-    const user_cs_sysret: u64 = (@as(u64, gdt.USER_CODE_SEL | 3) << 48);
+    // STAR[63:48] = kernel data (0x10) → SYSRET SS=0x18 user data, CS=0x20 user code.
+    const user_sysret_base: u64 = (@as(u64, gdt.KERNEL_DATA_SEL) << 48);
     // Kernel code selector SYSCALL entrylle (bits 47:32).
     const kernel_cs_syscall: u64 = (@as(u64, gdt.KERNEL_CODE_SEL) << 32);
     // Yhdistä STAR MSR arvo.
-    const star: u64 = user_cs_sysret | kernel_cs_syscall;
+    const star: u64 = user_sysret_base | kernel_cs_syscall;
     // Kirjoita STAR.
     wrmsr(MSR_STAR, star);
     // LSTAR = syscall entry point.
