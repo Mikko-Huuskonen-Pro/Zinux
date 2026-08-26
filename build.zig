@@ -45,6 +45,29 @@ pub fn build(b: *std.Build) void {
     });
     kernel_mod.addImport("zinuxabi", abi_mod);
 
+    // --- Loader-testi user-ELF (Vaihe 5.1) — upotetaan kerneliin ---
+    const user_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/loader_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    user_test_mod.red_zone = false;
+    user_test_mod.stack_protector = false;
+    user_test_mod.single_threaded = true;
+    const user_test_exe = b.addExecutable(.{
+        .name = "loader-test-user",
+        .root_module = user_test_mod,
+    });
+    user_test_exe.setLinkerScript(b.path("userland/user.ld"));
+    user_test_exe.root_module.addAssemblyFile(b.path("userland/loader_test/start.S"));
+    b.installArtifact(user_test_exe);
+
+    const embedded_elf_path = b.path("kernel/loader/test_prog.bin");
+    const copy_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_test_elf.addFileArg(user_test_exe.getEmittedBin());
+    copy_test_elf.addFileArg(embedded_elf_path);
+    copy_test_elf.step.dependOn(&user_test_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -55,6 +78,7 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/syscall_entry.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_entry.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_jump.S"));
+    kernel.step.dependOn(&copy_test_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---
@@ -78,6 +102,11 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const elf_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/loader/elf_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -90,8 +119,13 @@ pub fn build(b: *std.Build) void {
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
+    const elf_core_tests = b.addTest(.{
+        .root_module = elf_core_mod,
+    });
+    elf_core_tests.step.dependOn(&copy_test_elf.step);
     const run_host_tests = b.step("test", "Run host unit tests");
     run_host_tests.dependOn(&b.addRunArtifact(host_tests).step);
+    run_host_tests.dependOn(&b.addRunArtifact(elf_core_tests).step);
 
     // --- Limine binary fetch + host tool build ---
     const cache_path = b.pathFromRoot(limine_cache);

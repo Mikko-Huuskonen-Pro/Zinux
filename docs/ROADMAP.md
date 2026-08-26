@@ -105,7 +105,7 @@ zig build run
 
 | # | Tehtävä | Tiedosto |
 |---|---------|----------|
-| 5.1 | ELF-loader kernelissä | `kernel/loader/elf.zig` |
+| 5.1 | ELF-loader kernelissä | `kernel/loader/elf.zig` | ✅ parse PT_LOAD + boot "elf" |
 | 5.2 | init-prosessi | `userland/init/main.zig` |
 | 5.3 | Interaktiivinen shell | `userland/shell/main.zig` |
 | 5.4 | PS/2-näppäimistö | `kernel/drivers/char/keyboard.zig` |

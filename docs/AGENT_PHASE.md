@@ -25,7 +25,7 @@
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. **5.1** ELF-loader kernelissä (`kernel/loader/elf.zig`)
+1. ~~**5.1** ELF-loader kernelissä (`kernel/loader/elf.zig`)~~ ✅
 2. **5.2** init-prosessi (`userland/init/main.zig`)
 3. Kun vaihe valmis → nosta **Nykyinen vaihe** → **6**
 

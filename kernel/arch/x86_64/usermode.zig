@@ -81,6 +81,17 @@ pub fn returnToKernelTestContinue() noreturn {
     usermodeReturnToKernel();
 }
 
+// Siirry ring 3:een annetulla entry:llä ja pinolla (iretq + sys_test_return paluu).
+pub fn enterUser(entry: u64, user_stack_top: u64) void {
+    // User segmenttivalitsimet RPL 3.
+    const user_cs: u64 = gdt.USER_CODE_SEL | 3;
+    const user_ss: u64 = gdt.USER_DATA_SEL | 3;
+    // RFLAGS: bitti 1 pakollinen, IF=0.
+    const rflags: u64 = 0x2;
+    // Siirry ring 3:een — palaa ret:llä sys_test_return:in kautta.
+    usermodeEnterIret(entry, user_stack_top, user_cs, user_ss, rflags);
+}
+
 // Boot-testi — ring 3 sys_write("hello") + paluu kerneliin.
 pub fn runBootTest() void {
     // Kartoita sivut ja kopioi koodi.
@@ -89,13 +100,8 @@ pub fn runBootTest() void {
         log.err("Usermode page setup failed");
         return;
     }
-    // User segmenttivalitsimet RPL 3.
-    const user_cs: u64 = gdt.USER_CODE_SEL | 3;
-    const user_ss: u64 = gdt.USER_DATA_SEL | 3;
-    // RFLAGS: bitti 1 pakollinen, IF=0.
-    const rflags: u64 = 0x2;
-    // Siirry ring 3:een USER_CODE_ADDR:ssa (kopioitu blob).
-    usermodeEnterIret(USER_CODE_ADDR, USER_STACK_TOP, user_cs, user_ss, rflags);
+    // Siirry ring 3:een kopioituun blobiin.
+    enterUser(USER_CODE_ADDR, USER_STACK_TOP);
     // Paluu sys_test_return ret:llä.
     log.info("Usermode test OK");
 }

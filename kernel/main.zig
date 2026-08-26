@@ -126,6 +126,9 @@ fn kmain() noreturn {
     port.runBootTest();
     // Vaihe 4.5 — ring 3 sys_write("hello") SYSCALL:lla.
     usermode.runBootTest();
+    // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".
+    const elf_loader = @import("loader/elf.zig");
+    elf_loader.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);
