@@ -3,15 +3,11 @@
 //! **Vastuu**: Request/response -rakenteet joita Limine täyttää bootissa.
 //! **Riippuvuudet**: ei
 //! **Käytetään**: `boot/requests.zig`, `boot/limine.zig`
-//!
-//! Vendoroitu jotta emme riipu limine-zig -paketin Zig-versiosta.
 
-// Limine request ID -avain (kaikissa requesteissa yhteinen prefix).
 fn id(a: u64, b: u64) [4]u64 {
     return .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, a, b };
 }
 
-// Limine request -taulukon alkumerkki.
 pub const RequestsStartMarker = extern struct {
     marker: [4]u64 = .{
         0xf6b8f4b39de7d1ae,
@@ -21,12 +17,10 @@ pub const RequestsStartMarker = extern struct {
     },
 };
 
-// Limine request -taulukon loppumerkki.
 pub const RequestsEndMarker = extern struct {
     marker: [2]u64 = .{ 0xadc0e0531bb10d03, 0x9572709f31764c62 },
 };
 
-// Perusprotokollaversio — kernel pyytää vähintään tätä revisiota.
 pub const BaseRevision = extern struct {
     magic: [2]u64 = .{ 0xf9562b2d5c95a6c8, 0x6a7b384944536bdc },
     revision: u64,
@@ -40,26 +34,22 @@ pub const BaseRevision = extern struct {
     }
 };
 
-// HHDM-vastaus — higher-half direct map offset.
 pub const HhdmResponse = extern struct {
     revision: u64,
     offset: u64,
 };
 
-// HHDM-pyyntö — kernel tarvitsee offsetin fys→virt muunnokseen.
 pub const HhdmRequest = extern struct {
     id: [4]u64 = id(0x48dcf1cb8ad2b852, 0x63984e959a98244b),
     revision: u64 = 0,
     response: ?*HhdmResponse = null,
 };
 
-// Framebufferin muistimalli (RGB).
 pub const FramebufferMemoryModel = enum(u8) {
     rgb = 1,
     _,
 };
 
-// Yksittäinen framebuffer Liminen antamana.
 pub const Framebuffer = extern struct {
     address: *anyopaque,
     width: u64,
@@ -79,7 +69,6 @@ pub const Framebuffer = extern struct {
     modes: [*]*VideoMode,
 };
 
-// Videotila (Limine response revision 1+).
 pub const VideoMode = extern struct {
     pitch: u64,
     width: u64,
@@ -94,23 +83,55 @@ pub const VideoMode = extern struct {
     blue_mask_shift: u8,
 };
 
-// Framebuffer-vastaus — taulukko framebuffer-osoittimia.
 pub const FramebufferResponse = extern struct {
     revision: u64,
     framebuffer_count: u64,
     framebuffers: ?[*]*Framebuffer,
 
     pub fn getFramebuffers(self: @This()) []*Framebuffer {
-        if (self.framebuffer_count == 0 or self.framebuffers == null) {
-            return &.{};
-        }
+        if (self.framebuffer_count == 0 or self.framebuffers == null) return &.{};
         return self.framebuffers.?[0..self.framebuffer_count];
     }
 };
 
-// Framebuffer-pyyntö — valinnainen graafinen ulostulo.
 pub const FramebufferRequest = extern struct {
     id: [4]u64 = id(0x9d5827dcd881dd75, 0xa3148604f6fab11b),
     revision: u64 = 1,
     response: ?*FramebufferResponse = null,
+};
+
+// Muistikartan tyyppi — Limine MemoryMapEntry.type (v2).
+pub const MemoryMapType = enum(u64) {
+    usable = 0,
+    reserved = 1,
+    acpi_reclaimable = 2,
+    acpi_nvs = 3,
+    bad_memory = 4,
+    bootloader_reclaimable = 5,
+    executable_and_modules = 6,
+    framebuffer = 7,
+    _,
+};
+
+pub const MemoryMapEntry = extern struct {
+    base: u64,
+    length: u64,
+    type: MemoryMapType,
+};
+
+pub const MemoryMapResponse = extern struct {
+    revision: u64,
+    entry_count: u64,
+    entries: ?[*]*MemoryMapEntry,
+
+    pub fn getEntries(self: @This()) []*MemoryMapEntry {
+        if (self.entry_count == 0 or self.entries == null) return &.{};
+        return self.entries.?[0..self.entry_count];
+    }
+};
+
+pub const MemoryMapRequest = extern struct {
+    id: [4]u64 = id(0x67cf3d9d378a806f, 0xe304acdfc50c3c62),
+    revision: u64 = 0,
+    response: ?*MemoryMapResponse = null,
 };

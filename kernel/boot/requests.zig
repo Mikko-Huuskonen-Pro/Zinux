@@ -1,14 +1,11 @@
 //! Limine bootloader -pyynnöt — yksi struct varmistaa oikean muistijärjestyksen.
-//!
-//! **Vastuu**: Ilmoita Limineelle mitä boot-tietoja tarvitsemme.
-//! **TÄRKEÄ**: base_revision PITÄÄ olla ensimmäinen request (Limine PROTOCOL.md).
 
 const limine = @import("limine_protocol.zig");
 
-// Kaikki Limine-pyynnöt yhdessä structissa — base on aina ensimmäinen kenttä.
 pub const LimineRequests = extern struct {
     base: limine.BaseRevision,
     hhdm: limine.HhdmRequest,
+    memmap: limine.MemoryMapRequest,
     fb: limine.FramebufferRequest,
 };
 
@@ -19,6 +16,7 @@ export var limine_requests: LimineRequests
     linksection(".limine_requests") = .{
     .base = .init(0),
     .hhdm = .{},
+    .memmap = .{},
     .fb = .{},
 };
 

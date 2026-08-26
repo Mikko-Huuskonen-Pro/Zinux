@@ -1,16 +1,10 @@
-//! Limine boot-tietojen luku — käärii Limine-vastaukset BootInfo-rakenteeksi.
-//!
-//! **Vastuu**: Validoi Limine-vastaukset, tarjoa yksinkertainen BootInfo-API.
-//! **Riippuvuudet**: `limine_protocol.zig`, `requests.zig`
-//! **Käytetään**: `boot/entry.zig`, ajurit
+//! Limine boot-tietojen luku.
 
 const limine = @import("limine_protocol.zig");
 const requests = @import("requests.zig");
 
-// Viittaa requests.zig:ssä exportattuun structiin — Limine täyttää response-kentät.
 extern var limine_requests: requests.LimineRequests;
 
-// Yksinkertaistettu boot-info jota muu kernel käyttää.
 pub const BootInfo = struct {
     valid: bool,
     hhdm_offset: u64,
@@ -19,16 +13,12 @@ pub const BootInfo = struct {
     framebuffer_height: u64,
 };
 
-// Palauta true jos Limine boot on kelvollinen ja kernel voi jatkaa.
 pub fn isBootValid() bool {
-    // Limine on kirjoittanut base_revision-magicin — tarkista validius.
     if (!limine_requests.base.isValid()) return false;
-    // HHDM on pakollinen higher-half kernelille.
     if (limine_requests.hhdm.response == null) return false;
     return true;
 }
 
-// Kerää BootInfo-rakenne Limine-vastauksista.
 pub fn getBootInfo() BootInfo {
     var info: BootInfo = .{
         .valid = false,
@@ -49,4 +39,10 @@ pub fn getBootInfo() BootInfo {
     }
     info.valid = true;
     return info;
+}
+
+// Palauta Limine-muistikartta tai null jos puuttuu.
+pub fn getMemoryMapEntries() ?[]*limine.MemoryMapEntry {
+    const resp = limine_requests.memmap.response orelse return null;
+    return resp.getEntries();
 }

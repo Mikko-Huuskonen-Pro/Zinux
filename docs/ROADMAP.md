@@ -39,21 +39,27 @@ zig build iso && zig build run
 
 ---
 
-## Vaihe 2 — Muistinhallinta
+## Vaihe 2 — Muistinhallinta 🚧
 
 **Tavoite**: Fyysinen ja virtuaalinen muistinhallinta toimii; kernel heap allokoi.
 
-| # | Tehtävä | Tiedosto |
-|---|---------|----------|
-| 2.1 | GDT + TSS | `kernel/arch/x86_64/gdt.zig` |
-| 2.2 | IDT + keskeytyskäsittelijät | `kernel/arch/x86_64/idt.zig` |
-| 2.3 | 4-tasoinen sivutus | `kernel/arch/x86_64/paging.zig` |
-| 2.4 | PMM bitmap-allokaattori | `kernel/mm/pmm.zig` |
-| 2.5 | VMM sivukartoitus | `kernel/mm/vmm.zig` |
-| 2.6 | Kernel heap (first-fit) | `kernel/mm/heap.zig` |
-| 2.7 | Page fault -handler | `kernel/arch/x86_64/idt.zig` |
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 2.1 | GDT + TSS | `kernel/arch/x86_64/gdt.zig` | ✅ GDT (TSS myöhemmin) |
+| 2.2 | IDT + keskeytyskäsittelijät | `kernel/arch/x86_64/idt.zig` | ✅ stub + #14 |
+| 2.3 | 4-tasoinen sivutus | `kernel/arch/x86_64/paging.zig` | ✅ CR2/CR3, mapPage |
+| 2.4 | PMM bitmap-allokaattori | `kernel/mm/pmm.zig` | ✅ Limine map + host-testit |
+| 2.5 | VMM sivukartoitus | `kernel/mm/vmm.zig` | ✅ stub Limine CR3 päällä |
+| 2.6 | Kernel heap (first-fit) | `kernel/mm/heap.zig` | ⬜ |
+| 2.7 | Page fault -handler | `kernel/arch/x86_64/idt.zig` | ✅ CR2 + error code log |
 
 **Testi**: Allokoi 100 kehystä, kartoita, kirjoita, lue — ei page faultia.
+
+**Boot (nykyinen)**:
+```bash
+zig build run
+# Odotettu serial: PMM initialized, PMM alloc test OK, VMM initialized, Zinux boot OK
+```
 
 ---
 
