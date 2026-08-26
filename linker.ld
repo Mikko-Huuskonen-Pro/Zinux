@@ -7,34 +7,62 @@ ENTRY(_start)
 /* Higher-half kernelin virtuaalinen latausosoite (-2 GiB osoiteavaruudessa).   */
 KERNEL_BASE = 0xFFFFFFFF80000000;
 
+/* Program headerit — Limine vaatii .limine_requests erillisenä PT_LOAD:na.     */
+PHDRS
+{
+    limine_requests PT_LOAD;
+    text            PT_LOAD;
+    rodata          PT_LOAD;
+    data            PT_LOAD;
+}
+
 SECTIONS
 {
     /* Kaikki sectionit sijoitetaan KERNEL_BASE:n jälkeen.                      */
     . = KERNEL_BASE;
 
+    /* Limine request -taulukko — bootloader täyttää response-osoittimet.       */
+    .limine_requests : {
+        KEEP(*(.limine_requests_start))
+        KEEP(*(.limine_requests))
+        KEEP(*(.limine_requests_end))
+    } :limine_requests
+
+    /* Tasaus sivurajalle ennen suoritettavaa koodia.                             */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
     /* .text — suoritettava konekoodi (funktiot, inline asm).                   */
     .text : {
-        KEEP(*(.text.entry))   /* Entry point ensimmäiseksi — kriittinen bootille */
+        KEEP(*(.text.entry))
         *(.text .text.*)
     } :text
 
-    /* .rodata — vain luku -data (merkkijonot, vakiot, vtables).                */
+    /* Tasaus ennen vain-luku -dataa.                                            */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    /* .rodata — merkkijonot, vakiot, vtables.                                  */
     .rodata : {
         *(.rodata .rodata.*)
     } :rodata
 
-    /* .data — alustettu muuttuja-data (kopioitu mukaan ELF:stä).               */
+    /* Tasaus ennen alustettua dataa.                                            */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    /* .data — alustettu muuttuja-data.                                         */
     .data : {
         *(.data .data.*)
     } :data
 
-    /* .bss — nollattu data (varataan tilaa, ei vie levytilaa).                 */
+    /* Tasaus ennen BSS:ää.                                                     */
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+
+    /* .bss — nollattu data (varataan RAM, ei levytilaa).                        */
     .bss : {
         *(COMMON)
         *(.bss .bss.*)
-    } :bss
+    } :data
 
-    /* /DISCARD/ — heitä pois debug- ja comment-sectionit lopullisesta ELF:stä. */
+    /* /DISCARD/ — poista debug- ja kommenttiosiot lopullisesta ELF:stä.        */
     /DISCARD/ : {
         *(.comment)
         *(.note*)

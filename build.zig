@@ -1,59 +1,144 @@
-//! Zinux kernel — build-konfiguraatio.
+//! Zinux kernel — build-konfiguraatio (Zig 0.16).
 //!
 //! **Vastuu**: Käännä freestanding kernel, luo ISO, käynnistä QEMU.
 //! **Käyttö**:
 //!   `zig build`        — käännä kernel.elf
 //!   `zig build iso`    — luo bootattava ISO
 //!   `zig build run`    — käynnistä QEMU:ssa
-//!   `zig build test`   — aja host-yksikkotestit
+//!   `zig build test`   — aja host-yksikkötestit
 
 const std = @import("std");
 
-// build.zig:n entry point — Zig build-järjestelmä kutsuu tätä automaattisesti.
+// Limine-binäärit ladataan tähän cache-hakemistoon ensimmäisellä ISO-buildillä.
+const limine_version = "12.6.1";
+const limine_cache = "zig-cache/limine";
+
 pub fn build(b: *std.Build) void {
-    // Lue optimointitaso komentoriviparametrista (-Doptimize=ReleaseSafe jne.).
     const optimize = b.standardOptimizeOption(.{});
-    // Määritä freestanding x86_64 -kohde: ei käyttöjärjestelmää, ei libc:tä.
-    const target = b.resolveTargetQuery(.{
+
+    // Freestanding x86_64 — ei SSE/AVX (ei FPU-tilan tallennusta bootissa).
+    var query = std.Target.Query{
         .cpu_arch = .x86_64,
         .os_tag = .freestanding,
         .abi = .none,
+    };
+    query.cpu_features_add = std.Target.x86.featureSet(&.{.soft_float});
+    query.cpu_features_sub = std.Target.x86.featureSet(&.{
+        .mmx, .sse, .sse2, .sse3, .ssse3, .sse4_1, .sse4_2, .avx, .avx2,
     });
+    const target = b.resolveTargetQuery(query);
 
-    // --- Kernel executable ---
-    // Luo kernelin suoritettava tiedosto freestanding-ympäristöön.
-    const kernel = b.addExecutable(.{
-        .name = "zinux-kernel",
+    const kernel_mod = b.createModule(.{
         .root_source_file = b.path("kernel/main.zig"),
         .target = target,
-        .optimize = optimize,
+        // ReleaseSafe freestandingissä — Debug vetää UBSAN/SSE-runtimea jota ei ole.
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
-    // Aseta linkkeriskripti joka sijoittaa kernelin higher-half-osoitteeseen.
+    kernel_mod.red_zone = false;
+    kernel_mod.stack_protector = false;
+    kernel_mod.code_model = .kernel;
+    kernel_mod.single_threaded = true;
+
+    const kernel = b.addExecutable(.{
+        .name = "zinux-kernel",
+        .root_module = kernel_mod,
+    });
     kernel.setLinkerScript(b.path("linker.ld"));
-    // Poista red zone — keskeytykset korruptoivat sen alle jäävän pinon.
-    kernel.root_module.red_zone = false;
-    // Poista stack protector — ei runtime-tukea freestanding-ympäristössä.
-    kernel.root_module.stack_protector = false;
-    // Kernel code model — sallii 64-bit relokaatiot higher-half-osoitteeseen.
-    kernel.root_module.code_model = .kernel;
-    // Yksisäikeinen freestanding — ei tarvitse thread-local storagea.
-    kernel.root_module.single_threaded = true;
-    // Asenna kernel.elf build-hakemistoon oletusstepin artefaktina.
     b.installArtifact(kernel);
 
     // --- Host-testit ---
-    // Yksikkotestit ajetaan normaalilla host-targetilla (std käytössä).
     const host_tests = b.addTest(.{
-        .root_source_file = b.path("tests/host/root.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/host/root.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }),
     });
-    // Test-step ajaa kaikki `test`-blokit host-ympäristössä.
     const run_host_tests = b.step("test", "Run host unit tests");
     run_host_tests.dependOn(&b.addRunArtifact(host_tests).step);
 
-    // --- QEMU run (placeholder — vaatii ISO:n Vaihe 1:ssä) ---
-    // Tuleva: `zig build run` käynnistää QEMU:n Limine-ISO:lla.
-    const run_step = b.step("run", "Run Zinux in QEMU (requires ISO)");
-    _ = run_step; // Placeholder kunnes Vaihe 1 valmis.
+    // --- Limine binary fetch + host tool build ---
+    const cache_path = b.pathFromRoot(limine_cache);
+    const fetch_limine = b.addSystemCommand(&.{
+        "bash", "-c",
+        b.fmt(
+            \\set -euo pipefail
+            \\CACHE="{s}"
+            \\if [ ! -f "$CACHE/limine-bios-cd.bin" ]; then
+            \\  mkdir -p "$CACHE"
+            \\  curl -fsSL "https://github.com/Limine-Bootloader/Limine/releases/download/v{s}/limine-binary.tar.xz" \
+            \\    | tar xJ --strip-components=1 -C "$CACHE"
+            \\fi
+            \\if [ ! -x "$CACHE/limine" ]; then
+            \\  cc -g -O2 -std=c99 -D_FILE_OFFSET_BITS=64 "$CACHE/limine.c" -o "$CACHE/limine"
+            \\fi
+        , .{ cache_path, limine_version }),
+    });
+
+    // --- ISO root layout ---
+    const iso_root_rel = "zig-out/iso-root";
+    const iso_path_rel = "zig-out/zinux.iso";
+    const root_path = b.pathFromRoot(iso_root_rel);
+    const iso_path = b.pathFromRoot(iso_path_rel);
+    const kernel_path = b.pathFromRoot("zig-out/bin/zinux-kernel");
+    const limine_conf_path = b.pathFromRoot("limine.conf");
+
+    const mk_iso_root = b.addSystemCommand(&.{
+        "bash", "-c",
+        b.fmt(
+            \\set -euo pipefail
+            \\ROOT="{s}"
+            \\rm -rf "$ROOT"
+            \\mkdir -p "$ROOT/boot/limine" "$ROOT/EFI/BOOT"
+            \\cp "{s}" "$ROOT/boot/zinux-kernel"
+            \\cp "{s}" "$ROOT/boot/limine/limine.conf"
+            \\CACHE="{s}"
+            \\cp "$CACHE/limine-bios-cd.bin" "$CACHE/limine-bios.sys" "$CACHE/limine-uefi-cd.bin" "$ROOT/boot/limine/"
+            \\cp "$CACHE/BOOTX64.EFI" "$CACHE/BOOTIA32.EFI" "$ROOT/EFI/BOOT/"
+        , .{ root_path, kernel_path, limine_conf_path, cache_path }),
+    });
+    mk_iso_root.step.dependOn(b.getInstallStep());
+    mk_iso_root.step.dependOn(&fetch_limine.step);
+
+    const xorriso = b.addSystemCommand(&.{
+        "xorriso", "-as", "mkisofs",
+        "-R", "-r", "-J",
+        "-b", "boot/limine/limine-bios-cd.bin",
+        "-no-emul-boot", "-boot-load-size", "4", "-boot-info-table",
+        "-hfsplus", "-apm-block-size", "2048",
+        "--efi-boot", "boot/limine/limine-uefi-cd.bin",
+        "-efi-boot-part", "--efi-boot-image", "--protective-msdos-label",
+        "-o",
+    });
+    xorriso.addFileArg(b.path(iso_path_rel));
+    xorriso.addDirectoryArg(b.path(iso_root_rel));
+    xorriso.step.dependOn(&mk_iso_root.step);
+
+    const limine_install = b.addSystemCommand(&.{
+        "bash", "-c",
+        b.fmt(
+            \\"{s}/limine" bios-install "{s}"
+        , .{ cache_path, iso_path }),
+    });
+    limine_install.step.dependOn(&xorriso.step);
+    limine_install.step.dependOn(&fetch_limine.step);
+
+    const iso_step = b.step("iso", "Build bootable Zinux ISO");
+    iso_step.dependOn(&limine_install.step);
+
+    // --- QEMU run ---
+    const qemu = b.addSystemCommand(&.{
+        "qemu-system-x86_64",
+        "-M", "q35",
+        "-m", "512M",
+        "-serial", "stdio",
+        "-no-reboot",
+        "-no-shutdown",
+        "-cdrom",
+    });
+    qemu.addFileArg(b.path(iso_path_rel));
+    qemu.step.dependOn(&limine_install.step);
+
+    const run_step = b.step("run", "Run Zinux in QEMU");
+    run_step.dependOn(&qemu.step);
 }

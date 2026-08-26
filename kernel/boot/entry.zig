@@ -4,7 +4,7 @@
 //! **Riippuvuudet**: `limine.zig`, `../lib/log.zig`
 //! **Käytetään**: `kernel/main.zig` → `earlyInit()`
 
-// Tuo Limine-protokollan sidonta (bootloader antaa tietoja kernelille).
+// Tuo Limine boot-tietojen luku wrapper.
 const limine = @import("limine.zig");
 // Tuo lokitusmoduuli varhaista debug-tulostusta varten.
 const log = @import("../lib/log.zig");

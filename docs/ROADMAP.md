@@ -5,7 +5,7 @@
 
 ---
 
-## Vaihe 0 — Perusta ✅ (tämä PR)
+## Vaihe 0 — Perusta ✅
 
 | Tehtävä | Tila |
 |---------|------|
@@ -15,23 +15,21 @@
 | Limine + linker.ld konfiguraatio | ✅ |
 | Dokumentoitu entry point -esimerkki | ✅ |
 
-**Artefakti**: `zig build` kääntää (kun Zig asennettuna); dokumentaatio luettavissa.
-
 ---
 
-## Vaihe 1 — Boot & tulostus (MVP)
+## Vaihe 1 — Boot & tulostus ✅
 
 **Tavoite**: Kernel boottaa Liminessä, tulostaa "Zinux boot OK" UART/VGA:han.
 
-| # | Tehtävä | Tiedosto |
-|---|---------|----------|
-| 1.1 | Limine request/response -sidonta | `kernel/boot/limine.zig` |
-| 1.2 | `_start` entry + early stack | `kernel/boot/entry.zig` |
-| 1.3 | VGA text mode -ajuri | `kernel/drivers/video/vga.zig` |
-| 1.4 | UART COM1 debug -ajuri | `kernel/drivers/char/uart.zig` |
-| 1.5 | Log-moduuli (serial + vga) | `kernel/lib/log.zig` |
-| 1.6 | ISO-build + QEMU-run step | `build.zig` |
-| 1.7 | CI: boot-test "Zinux boot OK" | `.github/workflows/ci.yml` |
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 1.1 | Limine request/response | `kernel/boot/limine_protocol.zig` | ✅ |
+| 1.2 | `_start` entry + early stack | `kernel/boot/entry.zig` | ✅ |
+| 1.3 | VGA text mode -ajuri | `kernel/drivers/video/vga.zig` | ✅ |
+| 1.4 | UART COM1 debug -ajuri | `kernel/drivers/char/uart.zig` | ✅ |
+| 1.5 | Log-moduuli (serial + vga) | `kernel/lib/log.zig` | ✅ |
+| 1.6 | ISO-build + QEMU-run step | `build.zig` | ✅ |
+| 1.7 | CI: boot-test "Zinux boot OK" | `.github/workflows/ci.yml` | ✅ |
 
 **Testi**:
 ```bash

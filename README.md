@@ -37,18 +37,24 @@ zinux/
 
 ## Vaatimukset
 
-- [Zig](https://ziglang.org/download/) 0.14.0+ (`.zigversion`)
+- [Zig](https://ziglang.org/download/) **0.16.0** (`.zigversion`)
 - QEMU (Vaihe 1+: `zig build run`)
 - xorriso + Limine (Vaihe 1+: `zig build iso`)
 
 ## Kääntäminen
 
 ```bash
-# Asenna Zig (esim. 0.14.0)
-# curl -L https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz | tar xJ
+# Asenna Zig 0.16.0
+# curl -fsSL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar xJ
 
 # Käännä kernel
 zig build
+
+# Luo bootattava ISO (vaatii xorriso + curl + cc)
+zig build iso
+
+# Käynnistä QEMU:ssa (vaatii qemu-system-x86_64)
+zig build run
 
 # Aja host-yksikkotestit
 zig build test
@@ -56,9 +62,8 @@ zig build test
 
 ## Kehitysvaihe
 
-Projekti on **Vaihe 0** (perusta): arkkitehtuurisuunnitelma, dokumentointistandardi ja
-build-runko. Seuraava askel on **Vaihe 1** — bootattava kernel Liminessä joka tulostaa
-`Zinux boot OK` serial-porttiin.
+Projekti on **Vaihe 1** (boot & tulostus): Limine requestit, UART/VGA-ajurit,
+ISO/QEMU build-stepit. Seuraava askel on **Vaihe 2** — GDT, IDT, paging, PMM.
 
 Katso [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
 

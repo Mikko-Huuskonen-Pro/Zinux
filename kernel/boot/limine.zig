@@ -1,20 +1,24 @@
-//! Limine bootloader -protokollan sidonta.
+//! Limine boot-tietojen luku — käärii limine-zig vastaukset BootInfo-rakenteeksi.
 //!
-//! **Vastuu**: Lue Limine request/response -rakenteet, tarjoa boot-info API.
-//! **Riippuvuudet**: ei (vain freestanding tyypit)
-//! **Käytetään**: `boot/entry.zig`, ajurit (framebuffer, SMP)
-//!
-//! ## Huomio
-//! Täysi Limine-sidonta tulee Vaihe 1:ssä. Tämä on placeholder joka
-//! palauttaa stub-arvoja kunnes `limine-zig`-kirjasto tai oma sidonta lisätään.
+//! **Vastuu**: Validoi Limine-vastaukset, tarjoa yksinkertainen BootInfo-API.
+//! **Riippuvuudet**: `limine`-paketti, `requests.zig` exportit
+//! **Käytetään**: `boot/entry.zig`, ajurit
 
-// Boot-tiedot joita Limine antaa kernelille — yksinkertaistettu rakenne.
+// Tuo vendoroitu Limine-protokolla.
+const limine = @import("limine_protocol.zig");
+
+// Viittaa requests.zig:ssä exportattuihin globaaleihin — Limine täyttää ne.
+extern var base_revision: limine.BaseRevision;
+extern var hhdm_request: limine.HhdmRequest;
+extern var framebuffer_request: limine.FramebufferRequest;
+
+// Yksinkertaistettu boot-info jota muu kernel käyttää.
 pub const BootInfo = struct {
-    // Onko Limine vastannut kaikkiin requesteihin onnistuneesti.
+    // Onko kaikki pakolliset Limine-vastaukset saatu.
     valid: bool,
-    // Higher-half direct map -offset: fysinen → virtuaalinen osoitemuunnos.
+    // HHDM-offset: virtuaali = fysinen + offset.
     hhdm_offset: u64,
-    // Framebuffer-osoite (0 jos ei saatavilla).
+    // Framebufferin virtuaaliosoite (0 jos ei saatavilla).
     framebuffer_addr: u64,
     // Framebuffer leveys pikseleinä.
     framebuffer_width: u64,
@@ -22,23 +26,42 @@ pub const BootInfo = struct {
     framebuffer_height: u64,
 };
 
-// Staattinen boot-info stub — korvataan oikealla Limine-vastauksella Vaihe 1:ssä.
-var boot_info: BootInfo = .{
-    .valid = true,
-    .hhdm_offset = 0,
-    .framebuffer_addr = 0,
-    .framebuffer_width = 0,
-    .framebuffer_height = 0,
-};
-
-// Palauta true jos Limine boot on validi ja kernel voi jatkaa.
+// Palauta true jos Limine boot on kelvollinen ja kernel voi jatkaa.
 pub fn isBootValid() bool {
-    // Lue valid-lippu boot_info-rakenteesta.
-    return boot_info.valid;
+    // Limine on kirjoittanut base_revision-magicin — tarkista validius.
+    if (!base_revision.isValid()) return false;
+    // HHDM on pakollinen higher-half kernelille — response pitää olla olemassa.
+    if (hhdm_request.response == null) return false;
+    // Kaikki pakolliset tarkistukset läpi.
+    return true;
 }
 
-// Palauta kopio boot-tiedoista — caller saa omistetun arvon (POD-tyyppi).
+// Kerää BootInfo-rakenne Limine-vastauksista.
 pub fn getBootInfo() BootInfo {
-    // Palauta koko BootInfo-rakenne arvona (ei osoitinta — turvallisempi early bootissa).
-    return boot_info;
+    // Alusta oletusarvoilla — valid=false kunnes kaikki tiedot kerätty.
+    var info: BootInfo = .{
+        .valid = false,
+        .hhdm_offset = 0,
+        .framebuffer_addr = 0,
+        .framebuffer_width = 0,
+        .framebuffer_height = 0,
+    };
+    // Jos boot ei ole validi, palauta tyhjä info heti.
+    if (!isBootValid()) return info;
+    // Lue HHDM-offset vastauksesta — unwrap turvallinen isBootValid():n jälkeen.
+    info.hhdm_offset = hhdm_request.response.?.offset;
+    // Framebuffer on valinnainen — tarkista onko Limine antanut sen.
+    if (framebuffer_request.response) |fb_resp| {
+        // Hae framebuffer-taulukko Limine-vastauksesta.
+        const fbs = fb_resp.getFramebuffers();
+        // Jos vähintään yksi framebuffer on saatavilla, tallenna ensimmäisen tiedot.
+        if (fbs.len > 0) {
+            info.framebuffer_addr = @intFromPtr(fbs[0].address);
+            info.framebuffer_width = fbs[0].width;
+            info.framebuffer_height = fbs[0].height;
+        }
+    }
+    // Merkitse boot kelvolliseksi — kaikki pakolliset tiedot kerätty.
+    info.valid = true;
+    return info;
 }

@@ -1,12 +1,8 @@
 .{
-    // Pakettimanifesti — kuvaa Zinux-kernelin metatiedot ja riippuvuudet.
     .name = .zinux,
-    // Versio noudattaa kehitysvaihetta (0 = pre-release).
     .version = "0.0.0",
-    // Fingerprint varmistaa manifestin eheyden — generoitu Zig 0.14.0:lla.
     .fingerprint = 0x7db1256d3065b7f5,
-    // Lähdekoodin juuri suhteessa tähän tiedostoon.
+    .minimum_zig_version = "0.16.0",
     .paths = .{ "build.zig", "build.zig.zon", "kernel", "docs", "linker.ld", "limine.conf", "tests", "libs", "tools" },
-    // Ei ulkoisia Zig-paketteja vielä — Limine sidotaan suoraan lähdekoodina.
     .dependencies = .{},
 }

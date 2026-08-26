@@ -62,7 +62,7 @@ Zinux käyttää **hybridimikrokernel**-mallia (inspiraatio: seL4, Graphene, Fuc
 
 | Komponentti | Valinta | Perustelu |
 |-------------|---------|-----------|
-| Kieli | Zig 0.14+ | comptime, `@import("builtin")`, sisäänrakennettu cross-compile |
+| Kieli | Zig 0.16+ | comptime, `@import("builtin")`, sisäänrakennettu cross-compile |
 | Bootloader | [Limine](https://github.com/limine-bootloader/limine) | UEFI/BIOS, SMP, framebuffer, higher-half valmiina |
 | Kohde | `x86_64-freestanding-none` | Laajin ekosysteemi, QEMU-tuki |
 | Linkkeri | LLD (Zigin mukana) | `linker.ld` higher-half-kernelille |
@@ -198,7 +198,7 @@ Ajurit rekisteröidään bootissa `drivers/registry.zig`:ssä comptime-listana.
 ```
 zinux/
 ├── .github/workflows/ci.yml   # QEMU-integraatiotestit
-├── .zigversion                # 0.14.0 (tai uudempi)
+├── .zigversion                # 0.16.0
 ├── build.zig                  # Build, ISO, QEMU-käynnistys
 ├── build.zig.zon              # Pakettimanifesti
 ├── docs/
