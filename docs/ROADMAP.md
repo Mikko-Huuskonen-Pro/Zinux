@@ -99,7 +99,7 @@ zig build run
 
 ---
 
-## Vaihe 5 — Käyttäjätila
+## Vaihe 5 — Käyttäjätila ✅
 
 **Tavoite**: Init-prosessi, shell, peruskomennot.
 
@@ -109,9 +109,9 @@ zig build run
 | 5.2 | init-prosessi | `userland/init/main.zig` | ✅ ELF load + "init\n" + Init process OK |
 | 5.3 | Interaktiivinen shell | `userland/shell/main.zig` | ✅ prompt + help + Shell test OK |
 | 5.4 | PS/2-näppäimistö | `kernel/drivers/char/keyboard.zig` | ✅ IRQ1 + Keyboard init/test OK |
-| 5.5 | Komennot: help, meminfo, ps | `userland/shell/commands/` |
+| 5.5 | Komennot: help, meminfo, ps | `userland/shell/commands/` | ✅ SYS_meminfo/ps + boot test OK |
 
-**Testi**: Boot → shell prompt `zinux> ` → `help` tulostaa komennot.
+**Testi**: Boot → shell prompt `zinux> ` → `help` / `meminfo` / `ps` toimivat.
 
 ---
 

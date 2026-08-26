@@ -1,6 +1,6 @@
 /* userland/shell/user.ld — shell-prosessin muistikartta @ 0xFFFFFFFF90040000 */
 
-/* Ring 3 shell — bss @ +0x1000, user-pino heap-slot 66 @ 0x42000. */
+/* Ring 3 shell — bss @ 0x42000, user-pino heap-slot 67 @ 0x43000. */
 ENTRY(_start)
 
 SECTIONS

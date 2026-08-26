@@ -132,9 +132,9 @@ fn kmain() noreturn {
     // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
     const init_proc = @import("init.zig");
     init_proc.launch();
-    // Vaihe 5.3 — interaktiivinen shell (prompt + help, injektoitu "help\n").
+    // Vaihe 5.3/5.5 — shell-komennot (help, meminfo, ps) boot-testinä.
     const shell_proc = @import("shell.zig");
-    shell_proc.launch();
+    shell_proc.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);

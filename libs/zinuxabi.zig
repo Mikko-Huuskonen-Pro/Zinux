@@ -16,6 +16,10 @@ pub const SYS_ipc_send: u64 = 4;
 pub const SYS_ipc_recv: u64 = 5;
 // Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
 pub const SYS_read: u64 = 11;
+// Syscall-numero: sys_meminfo(buf, len) → kirjoitetut tavut.
+pub const SYS_meminfo: u64 = 12;
+// Syscall-numero: sys_ps(buf, len) → kirjoitetut tavut.
+pub const SYS_ps: u64 = 13;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

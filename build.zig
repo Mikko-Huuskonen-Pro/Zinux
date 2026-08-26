@@ -100,6 +100,7 @@ pub fn build(b: *std.Build) void {
     shell_mod.red_zone = false;
     shell_mod.stack_protector = false;
     shell_mod.single_threaded = true;
+    shell_mod.code_model = .large;
     const shell_exe = b.addExecutable(.{
         .name = "zinux-shell",
         .root_module = shell_mod,

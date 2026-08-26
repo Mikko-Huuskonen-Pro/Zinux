@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **5** (Käyttäjätila) ⬜
+## Nykyinen vaihe: **6** (Ajurit & tiedostojärjestelmä) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -20,23 +20,19 @@
 | 2 Muistinhallinta | ✅ |
 | 3 Prosessit & aikataulutus | ✅ |
 | 4 Syscalls & IPC | ✅ |
+| 5 Käyttäjätila | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 5)
+### Tämän kierroksen prioriteetti (Vaihe 6)
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. ~~**5.1** ELF-loader kernelissä (`kernel/loader/elf.zig`)~~ ✅
-2. ~~**5.2** init-prosessi (`userland/init/main.zig`)~~ ✅
-3. ~~**5.3** Interaktiivinen shell (`userland/shell/main.zig`)~~ ✅
-4. ~~**5.4** PS/2-näppäimistö (`kernel/drivers/char/keyboard.zig`)~~ ✅
-5. **5.5** Komennot: help, meminfo, ps (`userland/shell/commands/`)
-6. Kun vaihe 5 kokonaan valmis → nosta **Nykyinen vaihe** → **6**
+1. **6.1** PCI bus scan (`kernel/drivers/bus/pci.zig`)
 
 ---
 
-## Seuraava vaihe kun 5 on ✅: **6** (Ajurit & tiedostojärjestelmä)
+## Seuraava vaihe kun 6 on ✅: **7** (Turvallisuus & kovennus)
 
-Katso `docs/ROADMAP.md` — aloita kohdasta 6.1.
+Katso `docs/ROADMAP.md` — aloita kohdasta 7.1.
 
 ---
 

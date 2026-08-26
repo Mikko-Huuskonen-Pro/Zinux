@@ -12,6 +12,10 @@ const uart = @import("../drivers/char/uart.zig");
 const log = @import("../lib/log.zig");
 // Tuo usermode — ring 3 paluu boot-testiin.
 const usermode = @import("../arch/x86_64/usermode.zig");
+// Tuo PMM — vapaiden kehysten laskuri meminfo-syscallille.
+const pmm = @import("../mm/pmm.zig");
+// Tuo kernel heap — kokonaiskoko meminfo-syscallille.
+const heap = @import("../mm/heap.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -113,6 +117,117 @@ fn sysTestReturn(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     usermode.returnToKernelTestContinue();
 }
 
+// Kopioi literaali kernel-puskuriin — palauttaa uusi offset.
+fn appendLiteral(buf: []u8, offset: usize, text: []const u8) usize {
+    // Nykyinen kirjoituskohta.
+    var pos = offset;
+    // Kopioi jokainen merkki jos mahtuu.
+    for (text) |c| {
+        // Puskuri täynnä — lopeta.
+        if (pos >= buf.len) break;
+        // Tallenna merkki.
+        buf[pos] = c;
+        // Siirry eteenpäin.
+        pos += 1;
+    }
+    // Palauta uusi offset.
+    return pos;
+}
+
+// Kirjoita desimaaliluku kernel-puskuriin — palauttaa uusi offset.
+fn appendDecimal(buf: []u8, offset: usize, val: usize) usize {
+    // Nollatapaus erikseen.
+    if (val == 0) {
+        // Yksi nollamerkki jos mahtuu.
+        if (offset < buf.len) buf[offset] = '0';
+        // Palauta offset + 1 tai sama jos täynnä.
+        return if (offset < buf.len) offset + 1 else offset;
+    }
+    // Väliaikainen numeropuskuri käänteisessä järjestyksessä.
+    var digits: [20]u8 = undefined;
+    // Montako numeroa kerätty.
+    var dlen: usize = 0;
+    // Jäännös jakoa varten.
+    var n = val;
+    // Kerää numerot.
+    while (n > 0) : (n /= 10) {
+        // ASCII-numero jäännöksestä.
+        digits[dlen] = @truncate('0' + (n % 10));
+        // Kasvata pituus.
+        dlen += 1;
+    }
+    // Nykyinen offset.
+    var pos = offset;
+    // Tulosta numerot oikeassa järjestyksessä.
+    while (dlen > 0) {
+        // Vähennä ennen tulostusta.
+        dlen -= 1;
+        // Puskuri täynnä — lopeta.
+        if (pos >= buf.len) break;
+        // Kopioi numero.
+        buf[pos] = digits[dlen];
+        // Siirry eteenpäin.
+        pos += 1;
+    }
+    // Palauta uusi offset.
+    return pos;
+}
+
+// Kopioi kernel-puskuri käyttäjän osoitteeseen — palauttaa kopioitujen tavujen määrä.
+fn copyToUser(user: [*]u8, user_len: u64, kernel_buf: []const u8, kernel_len: usize) i64 {
+    // Tyhjä kopiointi on OK.
+    if (user_len == 0 or kernel_len == 0) return 0;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(kernel_len, @as(usize, @intCast(user_len)));
+    // Kopioi tavu kerrallaan ring 3 -puskuriin.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kernel_buf[i];
+    }
+    // Palauta kopioitujen tavujen määrä.
+    return @intCast(copy_len);
+}
+
+// sys_meminfo — täytä käyttäjän puskuri PMM/heap-tiedoilla.
+fn sysMeminfo(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a1);
+    // Puskurin enimmäispituus.
+    const user_len = a2;
+    // Kernel-puskuri muotoilua varten.
+    var kbuf: [96]u8 = undefined;
+    // Kirjoitusoffset kernel-puskurissa.
+    var pos: usize = 0;
+    // PMM total -rivi.
+    pos = appendLiteral(&kbuf, pos, "PMM total: ");
+    pos = appendDecimal(&kbuf, pos, pmm.totalFrames());
+    pos = appendLiteral(&kbuf, pos, " frames\nPMM free: ");
+    pos = appendDecimal(&kbuf, pos, pmm.availableFrames());
+    pos = appendLiteral(&kbuf, pos, " frames\nHeap size: ");
+    pos = appendDecimal(&kbuf, pos, heap.totalSize());
+    pos = appendLiteral(&kbuf, pos, " bytes\n");
+    // Kopioi muotoiltu teksti käyttäjän puskuriin.
+    return copyToUser(user, user_len, kbuf[0..pos], pos);
+}
+
+// sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
+fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a1);
+    // Puskurin enimmäispituus.
+    const user_len = a2;
+    // Staattinen prosessilista (kernel-säikeet + user stub).
+    const listing =
+        \\  PID  NAME
+        \\    0  kernel
+        \\    1  shell
+        \\
+    ;
+    // Kopioi lista käyttäjän puskuriin.
+    return copyToUser(user, user_len, listing, listing.len);
+}
+
 // Dispatch-taulukko — indeksi = syscall-numero (max 31).
 const handlers: [32]?SyscallFn = blk: {
     // Alusta kaikki merkinnät tyhjiksi.
@@ -127,6 +242,10 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_getpid)] = sysGetpid;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
+    // Rekisteröi sys_meminfo (shell meminfo-komento).
+    table[@intCast(abi.SYS_meminfo)] = sysMeminfo;
+    // Rekisteröi sys_ps (shell ps-komento).
+    table[@intCast(abi.SYS_ps)] = sysPs;
     // Palauta valmis taulukko.
     break :blk table;
 };

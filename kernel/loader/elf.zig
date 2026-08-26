@@ -41,12 +41,24 @@ const USER_RW_FLAGS = paging.PageFlags{
     .user = 1,
 };
 
-// Kartoita yksi 4 KiB sivu segmentille — kaikki RW latauksen ajaksi (CR0.WP).
+// Kartoita yksi 4 KiB sivu segmentille — älä ylikirjoita jo kartoitettua sivua.
 fn mapUserPage(virt: u64, executable: bool) bool {
-    // Kartoita uusi user-sivu PMM:stä (aina writable — kernel kopioi segmenttidatan).
-    if (!vmm.mapNewUserPageEnsure(virt, USER_RW_FLAGS)) return false;
-    // Aseta U-bitti koko polussa; NX pois jos suoritettava.
-    return paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), virt, executable);
+    // Tarkista onko sivu jo kartoitettu (useat PT_LOAD samalla sivulla).
+    const already = paging.getPteRaw(vmm.pml4Phys(), vmm.hhdm(), virt) != null;
+    // Uusi sivu — allokoi PMM:stä ja kartoita writable latausta varten.
+    if (!already) {
+        if (!vmm.mapNewUserPageEnsure(virt, USER_RW_FLAGS)) return false;
+    }
+    // Suoritettava segmentti samalla sivulla — varmista NX pois.
+    if (executable) {
+        return paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), virt, true);
+    }
+    // Ensimmäinen ei-suoritettava kartoitus — aseta user-bitti.
+    if (!already) {
+        return paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), virt, false);
+    }
+    // Sivu jo olemassa (esim. .text + .rodata) — säilytä olemassa oleva kartoitus.
+    return true;
 }
 
 // Kartoita [vaddr, vaddr+mem_size) sivu kerrallaan.
