@@ -30,3 +30,8 @@ test {
 test {
     _ = @import("capability_test.zig");
 }
+
+// Tuo IPC-portti-ydin-yksikkötestit.
+test {
+    _ = @import("port_test.zig");
+}

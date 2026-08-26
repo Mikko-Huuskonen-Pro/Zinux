@@ -42,6 +42,8 @@ const syscall = @import("arch/x86_64/syscall.zig");
 const dispatch = @import("syscall/dispatch.zig");
 // Tuo capability-hallinta (Vaihe 4.3).
 const capability = @import("ipc/capability.zig");
+// Tuo IPC-portit (Vaihe 4.4).
+const port = @import("ipc/port.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -118,6 +120,8 @@ fn kmain() noreturn {
     dispatch.runBootTest();
     // Vaihe 4.3 — capability boot-testi (create + delegate).
     capability.runBootTest();
+    // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
+    port.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);
