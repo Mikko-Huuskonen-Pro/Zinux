@@ -26,6 +26,10 @@ const vmm = @import("mm/vmm.zig");
 const heap = @import("mm/heap.zig");
 // Tuo muistitestit — 100 kehystä + heap smoke test.
 const memtest = @import("mm/memtest.zig");
+// Tuo PIC — keskeytysohjaimen remap ja EOI (Vaihe 3).
+const pic = @import("arch/x86_64/pic.zig");
+// Tuo PIT — timer IRQ0 aikataulutusta varten (Vaihe 3).
+const pit = @import("drivers/timer/pit.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -94,15 +98,26 @@ fn kmain() noreturn {
     memtest.runAll();
     // Boot on valmis — CI etsii tämän merkkijonon serialista.
     log.info("Zinux boot OK");
-    // Siirry ikuiselle idle-silmukalle (ei palaa).
+    // --- Vaihe 3: aikataulutus ---
+    // Remapaa PIC IRQ:t vektoreihin 32..47.
+    pic.remap(32);
+    // Alusta PIT ~100 Hz — timer IRQ taustalle.
+    pit.init(100);
+    // Salli timer IRQ0 (PIC mask pois).
+    pic.unmaskIrq(0);
+    // Rekisteröi timer-käsittelijä IDT vektoriin 32.
+    idt.registerHandler(pic.TIMER_VECTOR, @intFromPtr(&idt.timerIrqHandler));
+    // Vahvista Vaihe 3 timer-infrastruktuuri (scheduler WIP).
+    log.info("Phase 3 timer OK");
+    // Boot valmis — CI etsii Zinux boot OK (tulostettu yllä).
+    // Siirry idle-silmukkaan — scheduler.start() seuraavassa commitissa.
     idleLoop();
 }
 
-// Pysäytä CPU kunnes keskeytys — kernel ei tee vielä työtä taustalla.
+// Pysäytä CPU kunnes keskeytys — timer tick taustalla.
 fn idleLoop() noreturn {
-    // Ikuisesti: poista keskeytykset ja nukahda hlt:llä.
+    // Ikuisesti: nukahda keskeytyksiin (PIT IRQ tickittää).
     while (true) {
-        // cli + hlt — herää vain keskeytyksellä (ei vielä käytössä).
-        asm volatile ("cli; hlt");
+        asm volatile ("sti; hlt");
     }
 }

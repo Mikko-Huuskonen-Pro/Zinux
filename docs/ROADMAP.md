@@ -65,20 +65,20 @@ zig build run
 
 ---
 
-## Vaihe 3 — Prosessit & aikataulutus
+## Vaihe 3 — Prosessit & aikataulutus 🚧
 
 **Tavoite**: Useita säikeitä, kontekstinvaihto, PIT-ajastin.
 
-| # | Tehtävä | Tiedosto |
-|---|---------|----------|
-| 3.1 | CPU-konteksti (save/restore) | `kernel/arch/x86_64/context.zig` |
-| 3.2 | Prosessi & säie -rakenteet | `kernel/sched/process.zig`, `thread.zig` |
-| 3.3 | Round-robin scheduler | `kernel/sched/scheduler.zig` |
-| 3.4 | PIT 8254 -ajastin | `kernel/drivers/timer/pit.zig` |
-| 3.5 | Timer IRQ → scheduler tick | `kernel/arch/x86_64/idt.zig` |
-| 3.6 | SMP per-CPU init (Limine) | `kernel/boot/smp.zig` |
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 3.1 | CPU-konteksti (save/restore) | `kernel/arch/x86_64/context.zig` | ✅ RSP switch |
+| 3.2 | Prosessi & säie -rakenteet | `kernel/sched/thread.zig` | ✅ stub |
+| 3.3 | Round-robin scheduler | `kernel/sched/scheduler.zig` | 🚧 coop-yield WIP |
+| 3.4 | PIT 8254 -ajastin | `kernel/drivers/timer/pit.zig` | ✅ |
+| 3.5 | Timer IRQ → scheduler tick | `kernel/arch/x86_64/idt.zig` | ✅ tick-laskuri |
+| 3.6 | SMP per-CPU init (Limine) | `kernel/boot/smp.zig` | ⬜ |
 
-**Testi**: Kaksi säiettä vuorottelevat tulostusta → `[A][B][A][B]...`
+**Testi**: Kaksi säiettä vuorottelevat tulostusta → `[A][B][A][B]...` (WIP)
 
 ---
 

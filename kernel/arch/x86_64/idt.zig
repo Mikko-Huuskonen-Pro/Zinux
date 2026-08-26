@@ -12,6 +12,10 @@ const paging = @import("paging.zig");
 const log = @import("../../lib/log.zig");
 // Tuo UART suoraan heksadesimaalitulostukseen (runtime-arvot).
 const uart = @import("../../drivers/char/uart.zig");
+// Tuo PIC EOI timer-käsittelijään.
+const pic = @import("pic.zig");
+// PIT-tickien laskuri — taustatimer Vaihe 3:lle.
+var timer_ticks: u64 = 0;
 
 // IDT-merkintä — 128-bittinen kuvaus yhdestä keskeytys/poikkeusvektorista.
 const IdtEntry = packed struct {
@@ -144,6 +148,48 @@ export fn isrStub() callconv(.naked) noreturn {
     asm volatile ("cli; hlt");
 }
 
+// Timer IRQ C-käsittelijä — EOI + tick-laskuri.
+export fn timerIrqHandlerC() callconv(.c) void {
+    // Ilmoita PIC:lle että IRQ0 on käsitelty.
+    pic.sendEoi(0);
+    // Kasvata taustatick-laskuria.
+    timer_ticks += 1;
+}
+
+// Palauta PIT-tickien määrä.
+pub fn timerTicks() u64 {
+    return timer_ticks;
+}
+
+// Timer IRQ (vektori 32) — tallentaa rekisterit, kutsuu C-käsittelijää, iretq.
+pub export fn timerIrqHandler() callconv(.naked) noreturn {
+    // Tallenna caller-saved rekisterit ennen C-kutsua.
+    asm volatile (
+        \\push %%rax
+        \\push %%rcx
+        \\push %%rdx
+        \\push %%rsi
+        \\push %%rdi
+        \\push %%rbp
+        \\push %%r8
+        \\push %%r9
+        \\push %%r10
+        \\push %%r11
+        \\call timerIrqHandlerC
+        \\pop %%r11
+        \\pop %%r10
+        \\pop %%r9
+        \\pop %%r8
+        \\pop %%rbp
+        \\pop %%rdi
+        \\pop %%rsi
+        \\pop %%rdx
+        \\pop %%rcx
+        \\pop %%rax
+        \\iretq
+    );
+}
+
 // Alusta IDT — page fault #14 oikea käsittelijä, muut stub.
 pub fn init() void {
     // Osoite yleiseen stub-handleriin kaikille muille vektoreille.
@@ -186,4 +232,10 @@ pub fn setPageFaultHandler() void {
 pub fn lastFaultAddress() u64 {
     // Lue CR2 suoraan CPU:sta.
     return paging.getCr2();
+}
+
+// Rekisteröi yksittäinen IDT-käsittelijä vektorinumeroon (IRQ tai poikkeus).
+pub fn registerHandler(vector: usize, handler: u64) void {
+    // 64-bit interrupt gate, present, DPL 0.
+    idt[vector] = IdtEntry.init(handler, gdt.KERNEL_CODE_SEL, 0x8E);
 }
