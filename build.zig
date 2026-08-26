@@ -11,7 +11,7 @@ const std = @import("std");
 
 // Limine-binäärit ladataan tähän cache-hakemistoon ensimmäisellä ISO-buildillä.
 const limine_version = "12.6.1";
-const limine_cache = "zig-cache/limine";
+const limine_cache = ".zig-cache/limine";
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
