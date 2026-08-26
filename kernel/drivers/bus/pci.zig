@@ -85,11 +85,19 @@ fn makeConfigAddress(addr: PciAddress, offset: u8) u32 {
 }
 
 // Lue 32-bittinen konfiguraatioavaruuden sana.
-fn readConfigDword(addr: PciAddress, offset: u8) u32 {
+pub fn readConfigDword(addr: PciAddress, offset: u8) u32 {
     // Valitse osoite CONFIG_ADDRESS-porttiin.
     outl(PCI_CONFIG_ADDRESS, makeConfigAddress(addr, offset));
     // Lue data CONFIG_DATA-portista.
     return inl(PCI_CONFIG_DATA);
+}
+
+// Kirjoita 32-bittinen konfiguraatioavaruuden sana.
+pub fn writeConfigDword(addr: PciAddress, offset: u8, value: u32) void {
+    // Valitse osoite CONFIG_ADDRESS-porttiin.
+    outl(PCI_CONFIG_ADDRESS, makeConfigAddress(addr, offset));
+    // Kirjoita data CONFIG_DATA-porttiin.
+    outl(PCI_CONFIG_DATA, value);
 }
 
 // Lue 16-bittinen konfiguraatioavaruuden sana (vendor/device ID).
@@ -110,6 +118,49 @@ fn readConfigByte(addr: PciAddress, offset: u8) u8 {
     const shift: u5 = @intCast((offset & 3) * 8);
     // Palauta 8-bittinen kenttä.
     return @truncate(dword >> shift);
+}
+
+// Kirjoita 16-bittinen konfiguraatioavaruuden kenttä.
+pub fn writeConfigWord(addr: PciAddress, offset: u8, value: u16) void {
+    // Lue aligned 32-bit sana.
+    const dword = readConfigDword(addr, offset & 0xFC);
+    // Siirrä kohdekentän offset.
+    const shift: u5 = @intCast((offset & 2) * 8);
+    // Maskaa 16-bit kenttä.
+    const mask: u32 = @as(u32, 0xFFFF) << @intCast(shift);
+    // Yhdistä uusi arvo.
+    const new_dword = (dword & ~mask) | (@as(u32, value) << shift);
+    // Kirjoita takaisin.
+    writeConfigDword(addr, offset & 0xFC, new_dword);
+}
+
+// Ota PCI-laitteen memory + bus master käyttöön (command register).
+pub fn enableDevice(addr: PciAddress) void {
+    // Lue command register (offset 0x04).
+    const cmd = readConfigWord(addr, 0x04);
+    // Bit 1 = memory space, bit 2 = bus master.
+    writeConfigWord(addr, 0x04, cmd | 0x0006);
+}
+
+// Lue memory-BARin fyysinen osoite (32/64-bit); null jos I/O-BAR.
+pub fn readBarMem(addr: PciAddress, bar_index: u8) ?u64 {
+    // BAR offset PCI configissa (BAR0 = 0x10).
+    const bar_off: u8 = 0x10 + bar_index * 4;
+    // Lue BAR low dword.
+    const lo = readConfigDword(addr, bar_off);
+    // Bit 0 = 1 → I/O-portti (ei tueta).
+    if ((lo & 1) != 0) return null;
+    // Alaosan fyysinen osoite (4 KiB aligned).
+    var phys: u64 = lo & 0xFFFFFFF0;
+    // 64-bit memory BAR (type bits = 100b → mask 0x6 == 4).
+    if ((lo & 0x6) == 0x4) {
+        // Lue high 32 bits seuraavasta BAR-registeristä.
+        const hi = readConfigDword(addr, bar_off + 4);
+        // Yhdistä 64-bit osoite.
+        phys |= @as(u64, hi) << 32;
+    }
+    // Palauta MMIO-fyysinen base.
+    return phys;
 }
 
 // Onko header type -tavun bit 7 asetettu (multi-function laite)?
@@ -261,6 +312,100 @@ pub fn findByVendor(vendor_id: u16) ?PciDevice {
     }
     // Ei löytynyt.
     return null;
+}
+
+// Etsi ensimmäinen VirtIO block -laite (legacy 0x1001 tai modern 0x104x).
+pub fn findVirtioBlock() ?PciDevice {
+    // Käy kaikki skannatut laitteet.
+    for (devicesSlice()) |dev| {
+        // Vain VirtIO-vendor.
+        if (dev.vendor_id != VENDOR_VIRTIO) continue;
+        // Legacy block device ID (QEMU virtio-blk-pci = 0x1001).
+        if (dev.device_id == 0x1001) return dev;
+        // Modern block device ID range (0x1040 + virtio device id).
+        if (dev.device_id >= 0x1042 and dev.device_id <= 0x104F) return dev;
+    }
+    // Ei VirtIO block -laitetta.
+    return null;
+}
+
+// VirtIO PCI -capabilityt (common + notify) modern transportille.
+pub const VirtioPciCaps = struct {
+    // BAR-indeksi jossa common cfg sijaitsee.
+    common_bar: u8,
+    // Common cfg -offset BARin sisällä.
+    common_offset: u32,
+    // BAR-indeksi notify-alueelle.
+    notify_bar: u8,
+    // Notify-alueen offset BARin sisällä.
+    notify_offset: u32,
+    // Notify-kirjoituksen stride (queue_notify_off * multiplier).
+    notify_multiplier: u32,
+};
+
+// PCI capability: vendor specific (VirtIO käyttää tätä).
+const CAP_VENDOR_SPECIFIC: u8 = 0x09;
+// VirtIO PCI capability type: common configuration.
+const VIRTIO_PCI_CAP_COMMON: u8 = 1;
+// VirtIO PCI capability type: notification area.
+const VIRTIO_PCI_CAP_NOTIFY: u8 = 2;
+
+// Etsi VirtIO PCI common + notify capabilityt konfiguraatioavaruudesta.
+pub fn findVirtioPciCaps(addr: PciAddress) ?VirtioPciCaps {
+    // Status-rekisterin bit 4 = capabilities list present.
+    const status = readConfigWord(addr, 0x06);
+    // Ei capability-listaa → ei modern VirtIO PCI:tä.
+    if ((status & 0x0010) == 0) return null;
+    // Ensimmäinen capability offset 0x34.
+    var cap_ptr: u8 = readConfigByte(addr, 0x34);
+    // Kerättävä tulos.
+    var result = VirtioPciCaps{
+        .common_bar = 0,
+        .common_offset = 0,
+        .notify_bar = 0,
+        .notify_offset = 0,
+        .notify_multiplier = 0,
+    };
+    // Löytyykö common cfg?
+    var have_common = false;
+    // Löytyykö notify cfg?
+    var have_notify = false;
+    // Turvaraja silmukalle (ei ikuista kiertoa).
+    var iterations: u8 = 0;
+    // Käy capability-ketju.
+    while (cap_ptr != 0 and iterations < 48) : (iterations += 1) {
+        // Capability ID (0x09 = vendor specific).
+        const cap_id = readConfigByte(addr, cap_ptr);
+        // VirtIO capability?
+        if (cap_id == CAP_VENDOR_SPECIFIC) {
+            // cfg_type offset +3 virtio_pci_cap -rakenteessa.
+            const cfg_type = readConfigByte(addr, cap_ptr + 3);
+            // BAR-indeksi offset +4.
+            const bar = readConfigByte(addr, cap_ptr + 4);
+            // Offset BARin sisällä offset +8 (le32).
+            const offset = readConfigDword(addr, cap_ptr + 8);
+            // Common configuration structure.
+            if (cfg_type == VIRTIO_PCI_CAP_COMMON) {
+                // Tallenna common cfg sijainti.
+                result.common_bar = bar;
+                result.common_offset = offset;
+                have_common = true;
+            } else if (cfg_type == VIRTIO_PCI_CAP_NOTIFY) {
+                // Tallenna notify-alue.
+                result.notify_bar = bar;
+                result.notify_offset = offset;
+                // notify_off_multiplier offset +16 notify_cap:ssa.
+                result.notify_multiplier = readConfigDword(addr, cap_ptr + 16);
+                have_notify = true;
+            }
+        }
+        // Seuraava capability cap_next offset +1.
+        cap_ptr = readConfigByte(addr, cap_ptr + 1);
+    }
+    // Vaadi molemmat capabilityt.
+    if (!have_common or !have_notify) return null;
+    // Palauta löydetyt capabilityt.
+    return result;
 }
 
 // Tulosta yksi PCI-laite UART:iin (debug boot-scan).

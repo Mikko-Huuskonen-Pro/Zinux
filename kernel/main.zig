@@ -150,6 +150,12 @@ fn kmain() noreturn {
     // Vaihe 6.1 — PCI-väylän skannaus (config space 0xCF8/0xCFC).
     const pci = @import("drivers/bus/pci.zig");
     pci.runBootTest();
+    // Vaihe 6.2 — VirtIO block -ajuri (PCI common cfg + sektori 0).
+    const virtio_blk = @import("drivers/block/virtio_blk.zig");
+    virtio_blk.runBootTest();
+    // Vaihe 6.3 — VFS-rajapinta (mount + open/read/close).
+    const vfs = @import("fs/vfs.zig");
+    vfs.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).

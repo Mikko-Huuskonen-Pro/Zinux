@@ -157,6 +157,11 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const vfs_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/fs/vfs_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -166,6 +171,7 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("heap_core", heap_core_mod);
     host_test_mod.addImport("capability_core", capability_core_mod);
     host_test_mod.addImport("port_core", port_core_mod);
+    host_test_mod.addImport("vfs_core", vfs_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
@@ -246,6 +252,20 @@ pub fn build(b: *std.Build) void {
     const iso_step = b.step("iso", "Build bootable Zinux ISO");
     iso_step.dependOn(&limine_install.step);
 
+    // --- Testilevy VirtIO block -ajurille (Vaihe 6.2) ---
+    const test_img_rel = "zig-out/zinux-test.img";
+    const test_img_path = b.pathFromRoot(test_img_rel);
+    const mk_test_disk = b.addSystemCommand(&.{
+        "bash", "-c",
+        b.fmt(
+            \\set -euo pipefail
+            \\IMG="{s}"
+            \\mkdir -p "$(dirname "$IMG")"
+            \\dd if=/dev/zero of="$IMG" bs=512 count=2048 status=none 2>/dev/null
+            \\printf 'ZINUX' | dd of="$IMG" bs=1 count=5 conv=notrunc status=none 2>/dev/null
+        , .{test_img_path}),
+    });
+
     // --- QEMU run (headless — toimii CI:ssä ilman GTK-näyttöä) ---
     const qemu = b.addSystemCommand(&.{
         "qemu-system-x86_64",
@@ -256,10 +276,13 @@ pub fn build(b: *std.Build) void {
         "-serial", "stdio",
         "-no-reboot",
         "-no-shutdown",
+        "-drive", b.fmt("if=none,id=zbd,format=raw,file={s}", .{test_img_path}),
+        "-device", "virtio-blk-pci,drive=zbd,disable-legacy=on",
         "-cdrom",
     });
     qemu.addFileArg(b.path(iso_path_rel));
     qemu.step.dependOn(&limine_install.step);
+    qemu.step.dependOn(&mk_test_disk.step);
 
     const run_step = b.step("run", "Run Zinux in QEMU");
     run_step.dependOn(&qemu.step);

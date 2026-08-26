@@ -35,3 +35,8 @@ test {
 test {
     _ = @import("port_test.zig");
 }
+
+// Tuo VFS-ydin-yksikkötestit.
+test {
+    _ = @import("vfs_test.zig");
+}
