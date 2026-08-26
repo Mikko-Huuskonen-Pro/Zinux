@@ -147,6 +147,9 @@ fn kmain() noreturn {
     idt.registerHandler(keyboard.KEYBOARD_VECTOR, idt.keyboardHandlerAddr());
     // Boot-testi: simuloi scancodet (CI ilman fyysistä näppäimistöä).
     keyboard.runBootTest();
+    // Vaihe 6.1 — PCI-väylän skannaus (config space 0xCF8/0xCFC).
+    const pci = @import("drivers/bus/pci.zig");
+    pci.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).

@@ -121,7 +121,7 @@ zig build run
 
 | # | Tehtävä | Tiedosto |
 |---|---------|----------|
-| 6.1 | PCI bus scan | `kernel/drivers/bus/pci.zig` |
+| 6.1 | PCI bus scan | `kernel/drivers/bus/pci.zig` | ✅ config scan + PCI scan OK |
 | 6.2 | VirtIO block -ajuri | `kernel/drivers/block/virtio_blk.zig` |
 | 6.3 | VFS-rajapinta | `kernel/fs/vfs.zig` |
 | 6.4 | tmpfs (RAM-pohjainen) | `kernel/fs/tmpfs.zig` |

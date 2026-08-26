@@ -26,7 +26,8 @@
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. **6.1** PCI bus scan (`kernel/drivers/bus/pci.zig`)
+1. ~~**6.1** PCI bus scan (`kernel/drivers/bus/pci.zig`)~~ ✅
+2. **6.2** VirtIO block -ajuri (`kernel/drivers/block/virtio_blk.zig`)
 
 ---
 
