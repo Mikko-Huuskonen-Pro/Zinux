@@ -14,6 +14,8 @@ pub const SYS_getpid: u64 = 3;
 pub const SYS_ipc_send: u64 = 4;
 // Syscall-numero: sys_ipc_recv (stub myöhemmin).
 pub const SYS_ipc_recv: u64 = 5;
+// Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
+pub const SYS_read: u64 = 11;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

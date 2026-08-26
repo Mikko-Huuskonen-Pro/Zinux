@@ -132,6 +132,9 @@ fn kmain() noreturn {
     // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
     const init_proc = @import("init.zig");
     init_proc.launch();
+    // Vaihe 5.3 — interaktiivinen shell (prompt + help, injektoitu "help\n").
+    const shell_proc = @import("shell.zig");
+    shell_proc.launch();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);

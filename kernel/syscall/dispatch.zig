@@ -62,6 +62,35 @@ fn sysWrite(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(len);
 }
 
+// sys_read — lue fd:stä (0=stdin UART + injektorirengas).
+fn sysRead(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Tiedoston kuvaus (vain stdin tuettu).
+    const fd = a1;
+    // Puskurin osoite ring 3:ssa.
+    const buf = a2;
+    // Luettavien tavujen enimmäismäärä.
+    const len = a3;
+    // Vain stdin (fd 0) tuettu toistaiseksi.
+    if (fd != 0) return abi.EBADF;
+    // Tyhjä luku on OK.
+    if (len == 0) return 0;
+    // Osoitin puskuriin tavuina.
+    const ptr: [*]u8 = @ptrFromInt(buf);
+    // Lue tavuja kunnes puskuri täynnä.
+    var i: u64 = 0;
+    while (i < len) : (i += 1) {
+        // Blokkaava luku rengasjonosta tai UART:ista.
+        ptr[i] = uart.readc();
+        // Lopeta rivin lopussa (shell-komento valmis).
+        if (ptr[i] == '\n') {
+            // Palauta luettujen tavujen määrä mukaan lukien newline.
+            return @intCast(i + 1);
+        }
+    }
+    // Puskuri täynnä ilman newlinea.
+    return @intCast(len);
+}
+
 // sys_exit — lopeta prosessi (stub: pysäytä CPU).
 fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Exit-koodi (ei vielä tallenneta).
@@ -90,6 +119,8 @@ const handlers: [32]?SyscallFn = blk: {
     var table: [32]?SyscallFn = .{null} ** 32;
     // Rekisteröi sys_write.
     table[@intCast(abi.SYS_write)] = sysWrite;
+    // Rekisteröi sys_read.
+    table[@intCast(abi.SYS_read)] = sysRead;
     // Rekisteröi sys_exit.
     table[@intCast(abi.SYS_exit)] = sysExit;
     // Rekisteröi sys_getpid.

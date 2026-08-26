@@ -15,8 +15,52 @@ const REG_LINE_STAT: u16 = 5;
 
 // Line Status Register: bitti 5 = lähetysrekisteri tyhjä (valmis uudelle tavulle).
 const LSR_TX_READY: u8 = 1 << 5;
+// Line Status Register: bitti 0 = vastaanotettu tavu datarekisterissä.
+const LSR_DATA_READY: u8 = 1;
 // Line Control Register: DLAB=1 aktivoi baud rate -jakajan rekisterit.
 const LCR_DLAB: u8 = 1 << 7;
+
+// Syöttörengas — kernel voi injektoida komentoja ennen shell-käynnistystä.
+var input_ring: [256]u8 = undefined;
+// Rengas lukuindeksi (vanhin tavu).
+var input_head: usize = 0;
+// Rengas kirjoitusindeksi (seuraava vapaa).
+var input_tail: usize = 0;
+
+// Lisää yksi tavu syöttörengaaseen (kernel → user sys_read).
+pub fn pushInput(byte: u8) void {
+    // Laske seuraava tail indeksi mod 256.
+    const next = (input_tail + 1) % input_ring.len;
+    // Rengas täynnä — pudota vanhin (head eteenpäin).
+    if (next == input_head) input_head = (input_head + 1) % input_ring.len;
+    // Tallenna tavu tailiin.
+    input_ring[input_tail] = byte;
+    // Päivitä tail.
+    input_tail = next;
+}
+
+// Injektoi merkkijono syöttörengaaseen (boot-testi: "help\n").
+pub fn injectInput(msg: []const u8) void {
+    // Lisää jokainen tavu rengasjonoon.
+    for (msg) |b| pushInput(b);
+}
+
+// Lue tavu ensin rengasjonosta, sitten laitteistosta.
+fn readByte() u8 {
+    // Jos rengasjonossa on dataa, palauta vanhin.
+    if (input_head != input_tail) {
+        // Poimi tavu headistä.
+        const b = input_ring[input_head];
+        // Siirrä head eteenpäin mod 256.
+        input_head = (input_head + 1) % input_ring.len;
+        // Palauta injektoitu tai käyttäjän tavu.
+        return b;
+    }
+    // Odota kunnes UART datarekisterissä on tavu.
+    while ((inb(COM1 + REG_LINE_STAT) & LSR_DATA_READY) == 0) {}
+    // Lue tavu COM1 datarekisteristä.
+    return inb(COM1 + REG_DATA);
+}
 
 // Lue yksi tavu I/O-portista — dx-rekisteri porttinumerolle (Zig 0.16).
 inline fn inb(port: u16) u8 {
@@ -67,4 +111,10 @@ pub fn putc(byte: u8) void {
 pub fn write(msg: []const u8) void {
     // Käy jokainen merkki läpi ja lähetä putc:llä.
     for (msg) |b| putc(b);
+}
+
+// Lue yksi tavu stdin:stä (rengas + UART, blokkaava).
+pub fn readc() u8 {
+    // Delegoi readByte:lle.
+    return readByte();
 }

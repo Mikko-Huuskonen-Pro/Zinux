@@ -27,8 +27,9 @@ Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
 1. ~~**5.1** ELF-loader kernelissä (`kernel/loader/elf.zig`)~~ ✅
 2. ~~**5.2** init-prosessi (`userland/init/main.zig`)~~ ✅
-3. **5.3** Interaktiivinen shell (`userland/shell/main.zig`)
-4. Kun vaihe 5 kokonaan valmis → nosta **Nykyinen vaihe** → **6**
+3. ~~**5.3** Interaktiivinen shell (`userland/shell/main.zig`)~~ ✅
+4. **5.4** PS/2-näppäimistö (`kernel/drivers/char/keyboard.zig`)
+5. Kun vaihe 5 kokonaan valmis → nosta **Nykyinen vaihe** → **6**
 
 ---
 

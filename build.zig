@@ -91,6 +91,29 @@ pub fn build(b: *std.Build) void {
     copy_init_elf.addFileArg(embedded_init_path);
     copy_init_elf.step.dependOn(&init_exe.step);
 
+    // --- Shell user-ELF (Vaihe 5.3) — upotetaan kerneliin ---
+    const shell_mod = b.createModule(.{
+        .root_source_file = b.path("userland/shell/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    shell_mod.red_zone = false;
+    shell_mod.stack_protector = false;
+    shell_mod.single_threaded = true;
+    const shell_exe = b.addExecutable(.{
+        .name = "zinux-shell",
+        .root_module = shell_mod,
+    });
+    shell_exe.setLinkerScript(b.path("userland/shell/user.ld"));
+    shell_exe.root_module.addAssemblyFile(b.path("userland/shell/start.S"));
+    b.installArtifact(shell_exe);
+
+    const embedded_shell_path = b.path("kernel/loader/shell_prog.bin");
+    const copy_shell_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_shell_elf.addFileArg(shell_exe.getEmittedBin());
+    copy_shell_elf.addFileArg(embedded_shell_path);
+    copy_shell_elf.step.dependOn(&shell_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -103,6 +126,7 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_jump.S"));
     kernel.step.dependOn(&copy_test_elf.step);
     kernel.step.dependOn(&copy_init_elf.step);
+    kernel.step.dependOn(&copy_shell_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---
