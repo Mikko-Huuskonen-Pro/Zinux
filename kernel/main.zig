@@ -20,8 +20,12 @@ const gdt = @import("arch/x86_64/gdt.zig");
 const idt = @import("arch/x86_64/idt.zig");
 // Tuo PMM — fyysisten kehysten bitmap-allokaattori (Vaihe 2).
 const pmm = @import("mm/pmm.zig");
-// Tuo VMM — virtuaalimuistin stub Limine-sivutaulujen päällä (Vaihe 2).
+// Tuo VMM — virtuaalimuistin hallinta (Vaihe 2).
 const vmm = @import("mm/vmm.zig");
+// Tuo kernel heap — first-fit allokaattori (Vaihe 2).
+const heap = @import("mm/heap.zig");
+// Tuo muistitestit — 100 kehystä + heap smoke test.
+const memtest = @import("mm/memtest.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -82,6 +86,12 @@ fn kmain() noreturn {
     vmm.init(boot_info.hhdm_offset);
     // Vahvista VMM-alustus onnistui.
     log.info("VMM initialized");
+    // Alusta kernel heap — kartoittaa INITIAL_PAGES sivua HEAP_START:iin.
+    heap.init();
+    // Vahvista heap-alustus onnistui.
+    log.info("Heap initialized");
+    // Aja Vaihe 2 integraatiotestit (100 kehystä + heap smoke test).
+    memtest.runAll();
     // Boot on valmis — CI etsii tämän merkkijonon serialista.
     log.info("Zinux boot OK");
     // Siirry ikuiselle idle-silmukalle (ei palaa).

@@ -52,12 +52,18 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const heap_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/mm/heap_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
     });
     host_test_mod.addImport("pmm", pmm_mod);
+    host_test_mod.addImport("heap_core", heap_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });

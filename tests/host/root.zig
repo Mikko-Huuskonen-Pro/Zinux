@@ -20,3 +20,8 @@ test "host test infrastructure works" {
 test {
     _ = @import("pmm_test.zig");
 }
+
+// Tuo heap-ydin-yksikkötestit.
+test {
+    _ = @import("heap_test.zig");
+}
