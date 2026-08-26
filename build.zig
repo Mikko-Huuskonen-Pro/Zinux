@@ -133,11 +133,13 @@ pub fn build(b: *std.Build) void {
     const iso_step = b.step("iso", "Build bootable Zinux ISO");
     iso_step.dependOn(&limine_install.step);
 
-    // --- QEMU run ---
+    // --- QEMU run (headless — toimii CI:ssä ilman GTK-näyttöä) ---
     const qemu = b.addSystemCommand(&.{
         "qemu-system-x86_64",
         "-M", "q35",
         "-m", "512M",
+        "-display", "none",
+        "-monitor", "none",
         "-serial", "stdio",
         "-no-reboot",
         "-no-shutdown",

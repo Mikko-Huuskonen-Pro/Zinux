@@ -16,16 +16,20 @@ var initialized: bool = false;
 // Tallennettu boot-info (framebuffer vs VGA -valinta tulevaisuudessa).
 var stored_boot_info: limine.BootInfo = undefined;
 
+// Alusta vain UART — ennen Limine-validointia (early boot debug).
+pub fn initEarlyUart() void {
+    // Alusta COM1 115200 baud.
+    uart.init(115200);
+    // Merkitse UART valmiiksi info/err tulostusta varten.
+    initialized = true;
+}
+
 // Alusta lokitus: UART 115200 baud + VGA tyhjennys.
 pub fn init(boot_info: limine.BootInfo) void {
     // Tallenna boot-info myöhempää ajurivalintaa varten.
     stored_boot_info = boot_info;
-    // Alusta COM1 sarjaportti 115200 baud -nopeudella (QEMU -serial stdio).
-    uart.init(115200);
     // Tyhjennä VGA text mode -näyttö ennen ensimmäistä tulostusta.
     vga.clear();
-    // Merkitse lokitus valmiiksi.
-    initialized = true;
     // Vältä unused-varoitus — framebuffer_addr käytetään Vaiheessa 6.
     _ = stored_boot_info;
 }

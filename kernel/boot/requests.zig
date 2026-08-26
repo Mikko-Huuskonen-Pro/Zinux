@@ -1,33 +1,32 @@
-//! Limine bootloader -pyynnöt (requests) joita kernel exporttaa linkkerille.
+//! Limine bootloader -pyynnöt — yksi struct varmistaa oikean muistijärjestyksen.
 //!
 //! **Vastuu**: Ilmoita Limineelle mitä boot-tietoja tarvitsemme.
-//! **Riippuvuudet**: `limine`-paketti (48cf/limine-zig)
-//! **Käytetään**: linkkeri sijoittaa `.limine_requests`-sectioniin
+//! **TÄRKEÄ**: base_revision PITÄÄ olla ensimmäinen request (Limine PROTOCOL.md).
 
-// Tuo vendoroitu Limine-protokolla (ei ulkoista pakettia).
 const limine = @import("limine_protocol.zig");
 
-// Alkumerkki — Limine etsii request-taulukon alun tästä.
+// Kaikki Limine-pyynnöt yhdessä structissa — base on aina ensimmäinen kenttä.
+pub const LimineRequests = extern struct {
+    base: limine.BaseRevision,
+    hhdm: limine.HhdmRequest,
+    fb: limine.FramebufferRequest,
+};
+
 export var requests_start: limine.RequestsStartMarker
     linksection(".limine_requests_start") = .{};
-// Loppumerkki — Limine tietää request-taulukon päättyvän tähän.
+
+export var limine_requests: LimineRequests
+    linksection(".limine_requests") = .{
+    .base = .init(0),
+    .hhdm = .{},
+    .fb = .{},
+};
+
 export var requests_end: limine.RequestsEndMarker
     linksection(".limine_requests_end") = .{};
-// Perusprotokollaversio 3 — nykyinen Limine API (ei vanhentunut 0–2).
-export var base_revision: limine.BaseRevision
-    linksection(".limine_requests") = .init(3);
-// Higher-half direct map -offset: fysinen → virtuaalinen osoitemuunnos.
-export var hhdm_request: limine.HhdmRequest
-    linksection(".limine_requests") = .{};
-// Framebuffer-tiedot (valinnainen — VGA fallback jos puuttuu).
-export var framebuffer_request: limine.FramebufferRequest
-    linksection(".limine_requests") = .{};
 
-// Pakota linkkeri säilyttämään kaikki Limine-exportit (ReleaseSafe DCE).
 pub fn anchor() void {
     _ = &requests_start;
+    _ = &limine_requests;
     _ = &requests_end;
-    _ = &base_revision;
-    _ = &hhdm_request;
-    _ = &framebuffer_request;
 }

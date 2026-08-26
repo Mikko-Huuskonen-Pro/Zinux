@@ -15,20 +15,25 @@ const gdt = @import("arch/x86_64/gdt.zig");
 // Tuo IDT-alustus (Vaihe 2).
 const idt = @import("arch/x86_64/idt.zig");
 
+// Early stack — määritelty entry.zig:ssä, tarvitaan pinon alustukseen.
+extern var early_stack: [16 * 1024]u8 align(16);
+
 // `_start` on kernelin julkinen entry point — Limine hyppää tähän.
-// `export` tekee symbolin näkyväksi linkkerille; `linkage` = C-linkkaus.
 pub export fn _start() callconv(.c) noreturn {
-    // Säilytä Limine request -symbolit linkkerissä ennen dead code eliminationia.
+    // Aseta kernel-pino INLINE ennen ensimmäistä call-operaatiota.
+    // Jos pino vaihdetaan funktion sisällä, ret-osoite jää vanhalle pinolle.
+    const stack_top = @intFromPtr(&early_stack) + early_stack.len;
+    asm volatile ("mov %[stack], %%rsp"
+        :
+        : [stack] "r" (stack_top),
+    );
     requests.anchor();
-    // Kutsu varhaista boot-alustusta (stack, limine info, perusajurit).
     boot.earlyInit();
-    // Siirry pääkernel-loopiin — ei palaa koskaan.
     kmain();
 }
 
 // Kernelin pääfunktio — alustaa alijärjestelmät ja jää ikuiseen idle-tilaan.
 fn kmain() noreturn {
-    // Tulosta boot-viesti — vahvistaa että sarjaportti/VGA toimii.
     log.info("Zinux kernel starting...");
     // Tulosta arkkitehtuuritiedot compile-time `@import("builtin")`:sta.
     log.info("Target: x86_64 freestanding");

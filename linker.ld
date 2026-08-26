@@ -21,7 +21,7 @@ SECTIONS
     /* Kaikki sectionit sijoitetaan KERNEL_BASE:n jälkeen.                      */
     . = KERNEL_BASE;
 
-    /* Limine request -taulukko — bootloader täyttää response-osoittimet.       */
+    /* Limine request -taulukko — base_revision on structin ensimmäinen kenttä. */
     .limine_requests : {
         KEEP(*(.limine_requests_start))
         KEEP(*(.limine_requests))

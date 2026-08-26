@@ -23,5 +23,6 @@ jobs:
       - run: zig build iso
       - name: Boot test in QEMU
         run: |
-          timeout 30s zig build run 2>&1 | tee boot.log
+          set -o pipefail
+          timeout 30s zig build run 2>&1 | tee boot.log || test $? -eq 124
           grep -q "Zinux boot OK" boot.log
