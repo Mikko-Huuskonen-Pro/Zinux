@@ -14,7 +14,7 @@ const log = @import("../../lib/log.zig");
 const uart = @import("../../drivers/char/uart.zig");
 // Tuo PIC EOI timer-käsittelijään.
 const pic = @import("pic.zig");
-// PIT-tickien laskuri — taustatimer Vaihe 3:lle.
+// PIT-tickien laskuri — taustatimer Vaihe 3:lle (volatile IRQ-kirjoituksia varten).
 var timer_ticks: u64 = 0;
 
 // IDT-merkintä — 128-bittinen kuvaus yhdestä keskeytys/poikkeusvektorista.
@@ -152,13 +152,14 @@ export fn isrStub() callconv(.naked) noreturn {
 export fn timerIrqHandlerC() callconv(.c) void {
     // Ilmoita PIC:lle että IRQ0 on käsitelty.
     pic.sendEoi(0);
-    // Kasvata taustatick-laskuria.
-    timer_ticks += 1;
+    // Kasvata taustatick-laskuria (atomic — IRQ vs. idle-silmukka).
+    _ = @atomicRmw(u64, &timer_ticks, .Add, 1, .seq_cst);
 }
 
 // Palauta PIT-tickien määrä.
 pub fn timerTicks() u64 {
-    return timer_ticks;
+    // Atomic-luku — estää optimoijaa cachettamasta IRQ-päivityksiä.
+    return @atomicLoad(u64, &timer_ticks, .seq_cst);
 }
 
 // Timer IRQ (vektori 32) — tallentaa rekisterit, kutsuu C-käsittelijää, iretq.
@@ -186,6 +187,7 @@ pub export fn timerIrqHandler() callconv(.naked) noreturn {
         \\pop %%rdx
         \\pop %%rcx
         \\pop %%rax
+        \\sti
         \\iretq
     );
 }

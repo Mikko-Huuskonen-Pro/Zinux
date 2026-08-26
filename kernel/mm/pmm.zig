@@ -196,6 +196,30 @@ pub fn totalFrames() usize {
     return frame_count;
 }
 
+// Laske vapaiden kehysten määrä bitmapista (O(n) — riittää boot/debug).
+pub fn availableFrames() usize {
+    // Ei kehyksiä — ei mitään vapaata.
+    if (frame_count == 0) return 0;
+    // Vapaiden kehysten laskuri.
+    var free_count: usize = 0;
+    // Käy jokainen kehysindeksi läpi.
+    var i: usize = 0;
+    // Toista frame_count kertaa.
+    while (i < frame_count) : (i += 1) {
+        // Bitmap-tavun indeksi.
+        const byte_i = i / 8;
+        // Bitin sijainti tavussa.
+        const bit_i = i % 8;
+        // Bitti 0 tarkoittaa vapaata kehystä.
+        if ((bitmap[byte_i] & (@as(u8, 1) << @intCast(bit_i))) == 0) {
+            // Kasvata laskuria.
+            free_count += 1;
+        }
+    }
+    // Palauta vapaiden kehysten määrä.
+    return free_count;
+}
+
 // Host-testejä varten: suora bitmap-alustus annetulla puskurilla.
 pub fn init(bitmap_buffer: []u8, total: usize) void {
     // Käytä annettua puskuria bitmapina.

@@ -12,6 +12,8 @@ const pmm = @import("pmm.zig");
 const vmm = @import("vmm.zig");
 // Tuo heap — first-fit allokaattorin smoke test.
 const heap = @import("heap.zig");
+// Tuo UART desimaalilukujen tulostukseen boot-debugissa.
+const uart = @import("../drivers/char/uart.zig");
 
 // Kartoitustestin virtuaalinen alku — kernel higher-half, erillinen PD-indeksi.
 pub const TEST_MAP_BASE: u64 = 0xFFFFFFFFA0000000;
@@ -77,6 +79,53 @@ fn runFrameMapTest() void {
     }
     // Kaikki 100 kehystä OK — tulosta vahvistus.
     log.info("Memory map test OK (100 frames)");
+    // Tulosta PMM-vapaiden kehysten määrä boot-debugiin (Vaihe 2 diagnostiikka).
+    logFreeFrameCount();
+}
+
+// Tulosta vapaiden PMM-kehysten määrä UART:iin (yksinkertainen desimaalilog).
+fn logFreeFrameCount() void {
+    // Hae vapaiden kehysten määrä bitmapista.
+    const free = pmm.availableFrames();
+    // Staattinen otsikko serialiin.
+    log.info("PMM free frames:");
+    // Tulosta luku yksinkertaisella desimaalitulostuksella (ei log.fmt).
+    writeDecimal(free);
+}
+
+// Desimaalitulostus UART:iin — riittää boot-debug-luvuille.
+fn writeDecimal(val: usize) void {
+    // Nollatapaus erikseen.
+    if (val == 0) {
+        // Tulosta nolla.
+        uart.putc('0');
+        // Rivinvaihto luvun jälkeen.
+        uart.putc('\n');
+        // Valmis.
+        return;
+    }
+    // Puskuri enintään 20 numeroa (64-bit desimaali).
+    var buf: [20]u8 = undefined;
+    // Montako numeroa on kerätty.
+    var len: usize = 0;
+    // Jäännös jakoa varten.
+    var n = val;
+    // Kerää numerot käänteisessä järjestyksessä.
+    while (n > 0) : (n /= 10) {
+        // ASCII-numero jäännöksestä.
+        buf[len] = @as(u8, @truncate('0' + (n % 10)));
+        // Kasvata pituus.
+        len += 1;
+    }
+    // Tulosta numerot oikeassa järjestyksessä.
+    while (len > 0) {
+        // Vähennä ennen tulostusta.
+        len -= 1;
+        // Tulosta yksi numero.
+        uart.putc(buf[len]);
+    }
+    // Rivinvaihto luvun jälkeen.
+    uart.putc('\n');
 }
 
 // Smoke test kernel heapille — alloc, free, uudelleenalloc.
