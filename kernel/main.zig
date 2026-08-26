@@ -40,6 +40,8 @@ const pit_ticks = @import("lib/pit_ticks.zig");
 const syscall = @import("arch/x86_64/syscall.zig");
 // Tuo syscall dispatch — handler-taulukko (Vaihe 4.2).
 const dispatch = @import("syscall/dispatch.zig");
+// Tuo capability-hallinta (Vaihe 4.3).
+const capability = @import("ipc/capability.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -114,6 +116,8 @@ fn kmain() noreturn {
     log.info("Zinux boot OK");
     // Vaihe 4.2 — dispatch boot-testi (sys_write → serial "SY").
     dispatch.runBootTest();
+    // Vaihe 4.3 — capability boot-testi (create + delegate).
+    capability.runBootTest();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);

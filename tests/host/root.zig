@@ -25,3 +25,8 @@ test {
 test {
     _ = @import("heap_test.zig");
 }
+
+// Tuo capability-ydin-yksikkötestit.
+test {
+    _ = @import("capability_test.zig");
+}

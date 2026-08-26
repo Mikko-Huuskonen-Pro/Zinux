@@ -90,7 +90,7 @@ zig build run
 |---|---------|----------|------|
 | 4.1 | Syscall entry (syscall/sysenter) | `kernel/arch/x86_64/syscall.zig` | ✅ STAR/LSTAR/SFMASK + entry.S |
 | 4.2 | Syscall dispatch -taulu | `kernel/syscall/dispatch.zig` | ✅ write/exit/getpid + boot-testi |
-| 4.3 | Capability-rakenne | `kernel/ipc/capability.zig` | ⬜ |
+| 4.3 | Capability-rakenne | `kernel/ipc/capability.zig` | ✅ create/delegate/revoke + boot-testi |
 | 4.4 | IPC-portit (send/recv) | `kernel/ipc/port.zig` | ⬜ |
 | 4.5 | Ring 3 siirtymä | `kernel/arch/x86_64/usermode.zig` | ⬜ |
 | 4.6 | Jaettu ABI | `libs/zinuxabi.zig` | ✅ syscall-numerot + virhekoodit |

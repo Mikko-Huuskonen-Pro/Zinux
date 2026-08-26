@@ -66,6 +66,11 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const capability_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/ipc/capability_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -73,6 +78,7 @@ pub fn build(b: *std.Build) void {
     });
     host_test_mod.addImport("pmm", pmm_mod);
     host_test_mod.addImport("heap_core", heap_core_mod);
+    host_test_mod.addImport("capability_core", capability_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });

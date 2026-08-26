@@ -1,0 +1,276 @@
+//! Capability-ydin — objektit, oikeudet ja delegointi (host-testattava).
+//!
+//! **Vastuu**: Capability-objektitaulukko, slotit, oikeuksien tarkistus.
+//! **Riippuvuudet**: ei
+//! **Käytetään**: `capability.zig`, host-testit
+
+// Capability-objektin tyyppi — mitä resurssia handle edustaa.
+pub const CapType = enum(u8) {
+    // Tyhjä / virheellinen tyyppi.
+    null = 0,
+    // IPC-portti (send/recv).
+    port = 1,
+    // Muistialue (map/read/write).
+    memory = 2,
+    // IRQ-vektori (myöhemmin).
+    irq = 3,
+    // Endpoint stub tulevaan IPC:hen.
+    endpoint = 4,
+};
+
+// Oikeusbitit — delegointi voi siirtää vain osajoukon.
+pub const Rights = packed struct(u32) {
+    // Luku-oikeus (muisti, portti-metadata).
+    read: bool = false,
+    // Kirjoitus-oikeus.
+    write: bool = false,
+    // IPC-lähetys porttiin.
+    send: bool = false,
+    // IPC-vastaanotto portista.
+    recv: bool = false,
+    // Muistin kartoitus (mmap).
+    map: bool = false,
+    // Oikeuksien edelleen delegointi.
+    grant: bool = false,
+    // Varattu tuleville biteille.
+    _reserved: u26 = 0,
+};
+
+// Yksittäinen capability-objekti kernelin globaalissa taulukossa.
+pub const CapObject = packed struct {
+    // Onko objektipaikka käytössä.
+    used: bool,
+    // Objektin tyyppi (port, memory, …).
+    typ: CapType,
+    // Omistava prosessi (stub: aina 1 boot-vaiheessa).
+    owner_pid: u64,
+    // Tyypin spesifinen tunniste (port_id, region_id, …).
+    object_id: u64,
+};
+
+// Prosessin capability-viite — objektin id + rajatut oikeudet.
+pub const CapRef = struct {
+    // Viite globaalin taulukon objektiin (0 = virheellinen).
+    object_id: u32,
+    // Tähän slottiin liitetyt oikeudet.
+    rights: Rights,
+};
+
+// Maksimi capability-objektien määrä kernelissä.
+pub const MAX_OBJECTS: usize = 64;
+// Maksimi slottien määrä prosessia kohden (stub-yksi prosessi).
+pub const MAX_SLOTS: usize = 32;
+
+// Globaalit capability-objektit — indeksi = object_id.
+var objects: [MAX_OBJECTS]CapObject = undefined;
+// Seuraava vapaa object_id (1..MAX_OBJECTS-1) — ei käytössä indeksipohjaisessa mallissa.
+var next_object_id: u32 = 1;
+// Prosessin capability-slotit (stub: yksi prosessi).
+var slots: [MAX_SLOTS]CapRef = undefined;
+// Montako slottia on käytössä.
+var slot_count: usize = 0;
+// Onko ydin alustettu.
+var initialized: bool = false;
+
+// Tarkista että `requested`-oikeudet ovat osajoukko `granted`:sta.
+pub fn rightsSubset(granted: Rights, requested: Rights) bool {
+    // read-bit: pyydetty vaatii granted.read.
+    if (requested.read and !granted.read) return false;
+    // write-bit: pyydetty vaatii granted.write.
+    if (requested.write and !granted.write) return false;
+    // send-bit: pyydetty vaatii granted.send.
+    if (requested.send and !granted.send) return false;
+    // recv-bit: pyydetty vaatii granted.recv.
+    if (requested.recv and !granted.recv) return false;
+    // map-bit: pyydetty vaatii granted.map.
+    if (requested.map and !granted.map) return false;
+    // grant-bit: pyydetty vaatii granted.grant.
+    if (requested.grant and !granted.grant) return false;
+    // Kaikki pyydetyt bitit sallittu.
+    return true;
+}
+
+// Leikkaa kaksi oikeusjoukkoa (delegointiin).
+pub fn rightsIntersect(a: Rights, b: Rights) Rights {
+    // Palauta bitit jotka ovat molemmissa.
+    return .{
+        // read vain jos molemmissa.
+        .read = a.read and b.read,
+        // write vain jos molemmissa.
+        .write = a.write and b.write,
+        // send vain jos molemmissa.
+        .send = a.send and b.send,
+        // recv vain jos molemmissa.
+        .recv = a.recv and b.recv,
+        // map vain jos molemmissa.
+        .map = a.map and b.map,
+        // grant vain jos molemmissa.
+        .grant = a.grant and b.grant,
+    };
+}
+
+// Nollaa objektit ja slotit — kutsutaan bootissa ja testeissä.
+pub fn initCore() void {
+    // Tyhjennä kaikki objektipaikat.
+    for (&objects) |*obj| {
+        // Merkitse vapaa.
+        obj.used = false;
+        // Nollaa tyyppi.
+        obj.typ = .null;
+        // Ei omistajaa.
+        obj.owner_pid = 0;
+        // Ei objektitunnistetta.
+        obj.object_id = 0;
+    }
+    // Tyhjennä slotit.
+    for (&slots) |*slot| {
+        // Ei objektiviitettä.
+        slot.object_id = 0;
+        // Ei oikeuksia.
+        slot.rights = .{};
+    }
+    // Nollaa slottilaskuri.
+    slot_count = 0;
+    // Ensimmäinen id alkaa 1:stä (0 = virheellinen).
+    next_object_id = 1;
+    // Merkitse alustetuksi.
+    initialized = true;
+}
+
+// Luo uusi capability-objekti kernel-taulukkoon.
+pub fn createObject(typ: CapType, owner_pid: u64, resource_id: u64) ?u32 {
+    // Vaadi priori alustus.
+    if (!initialized) return null;
+    // Etsi vapaa paikka objects-taulukosta.
+    var i: usize = 0;
+    while (i < objects.len) : (i += 1) {
+        // Ohita käytössä olevat paikat.
+        if (objects[i].used) continue;
+        // Objektin id = taulukko-indeksi + 1 (getObject(id) → objects[id-1]).
+        const id: u32 = @intCast(i + 1);
+        // Täytä objektikentät.
+        objects[i] = .{
+            // Paikka käytössä.
+            .used = true,
+            // Aseta tyyppi.
+            .typ = typ,
+            // Omistaja-prosessi.
+            .owner_pid = owner_pid,
+            // Resurssin tunniste (esim. port_num).
+            .object_id = resource_id,
+        };
+        // Kasvata seuraavaa id:tä (tilastoa varten).
+        if (id >= next_object_id) next_object_id = id + 1;
+        // Palauta uuden objektin id.
+        return id;
+    }
+    // Taulukko täynnä.
+    return null;
+}
+
+// Hae objekti id:llä — null jos puuttuu tai vapaa.
+pub fn getObject(id: u32) ?*CapObject {
+    // Id 0 on aina virheellinen.
+    if (id == 0 or id > objects.len) return null;
+    // Indeksi = id - 1 (id 1 → objects[0]).
+    const idx: usize = @intCast(id - 1);
+    // Hae osoitin objektiin.
+    const obj = &objects[idx];
+    // Palauta vain jos käytössä.
+    if (!obj.used) return null;
+    // Kelvollinen objekti.
+    return obj;
+}
+
+// Asenna capability slottiin — palauttaa slot-indeksin.
+pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
+    // Vaadi alustus.
+    if (!initialized) return null;
+    // Objektin pitää olla olemassa.
+    if (getObject(object_id) == null) return null;
+    // Etsi vapaa slotti.
+    if (slot_count >= MAX_SLOTS) return null;
+    // Uuden slotin indeksi.
+    const slot_idx: u32 = @intCast(slot_count);
+    // Täytä slotti.
+    slots[slot_count] = .{
+        // Viite objektiin.
+        .object_id = object_id,
+        // Alkuperäiset oikeudet.
+        .rights = rights,
+    };
+    // Kasvata slottien määrää.
+    slot_count += 1;
+    // Palauta slot-indeksi prosessille.
+    return slot_idx;
+}
+
+// Hae slotti indeksillä.
+pub fn lookupSlot(slot_idx: u32) ?CapRef {
+    // Vaadi alustus.
+    if (!initialized) return null;
+    // Indeksi rajojen sisällä.
+    if (slot_idx >= slot_count) return null;
+    // Palauta kopio slotista.
+    return slots[@intCast(slot_idx)];
+}
+
+// Tarkista onko slotilla pyydetty oikeus.
+pub fn slotHasRights(slot_idx: u32, requested: Rights) bool {
+    // Hae slotti.
+    const slot = lookupSlot(slot_idx) orelse return false;
+    // Pyydetyt bitit ⊆ slotin oikeudet.
+    return rightsSubset(slot.rights, requested);
+}
+
+// Delegoi osa oikeuksista uuteen slottiin — grant-oikeus vaaditaan.
+pub fn delegateSlot(slot_idx: u32, new_rights: Rights) ?u32 {
+    // Hae lähdeslotti.
+    const src = lookupSlot(slot_idx) orelse return null;
+    // Delegointi vaatii grant-bitin lähde-slotissa.
+    if (!src.rights.grant) return null;
+    // Uudet oikeudet ⊆ alkuperäiset oikeudet.
+    if (!rightsSubset(src.rights, new_rights)) return null;
+    // Asenna uusi slotti samalle objektille pienemmillä oikeuksilla.
+    return installSlot(src.object_id, new_rights);
+}
+
+// Peruuta objekti — invalidoi kaikki siihen viittaavat slotit.
+pub fn revokeObject(object_id: u32) bool {
+    // Hae objekti.
+    const obj = getObject(object_id) orelse return false;
+    // Merkitse objekti vapaaksi.
+    obj.used = false;
+    // Nollaa tyyppi.
+    obj.typ = .null;
+    // Poista omistaja.
+    obj.owner_pid = 0;
+    // Nollaa resurssitunniste.
+    obj.object_id = 0;
+    // Poista slot-viitteet tähän objektiin.
+    var i: usize = 0;
+    while (i < slot_count) : (i += 1) {
+        // Jos slotti viittaa peruttavaan objektiin.
+        if (slots[i].object_id == object_id) {
+            // Nollaa slotti (ei tiivistetä listaa boot-stubissa).
+            slots[i].object_id = 0;
+            // Poista oikeudet.
+            slots[i].rights = .{};
+        }
+    }
+    // Onnistui.
+    return true;
+}
+
+// Luo objekti ja asenna se slottiin yhdellä kutsulla.
+pub fn createAndInstall(
+    typ: CapType,
+    owner_pid: u64,
+    resource_id: u64,
+    rights: Rights,
+) ?u32 {
+    // Luo kernel-objekti.
+    const obj_id = createObject(typ, owner_pid, resource_id) orelse return null;
+    // Asenna slottiin — palauta slot-indeksi (käyttäjän handle stub).
+    return installSlot(obj_id, rights);
+}
