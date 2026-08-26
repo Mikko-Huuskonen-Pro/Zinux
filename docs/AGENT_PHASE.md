@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **3** (Prosessit & aikataulutus) 🚧
+## Nykyinen vaihe: **4** (Syscalls & IPC) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -18,33 +18,28 @@
 | 0 Perusta | ✅ |
 | 1 Boot & tulostus | ✅ |
 | 2 Muistinhallinta | ✅ |
+| 3 Prosessit & aikataulutus | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 3)
+### Tämän kierroksen prioriteetti (Vaihe 4)
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. **3.5** Timer IRQ → scheduler tick (idle näkee tickit; `Phase 3 timer ticks OK` serialissa)
-2. **3.6** SMP per-CPU init (`kernel/boot/smp.zig`, Limine)
-3. Vaihe 3 valmis → merkitse ROADMAP ✅ ja **nosta alla oleva numero 4:ksi**
-
-### Vaihe 3 valmis kun
-
-- Coop ABAB-demo toimii (✅)
-- Timer tick -laskuri näkyy idle-silmukassa tai boot-logissa
-- SMP stub boottaa (vähintään yksi CPU logitettu)
+1. **4.1** Syscall entry (`kernel/arch/x86_64/syscall.zig`)
+2. **4.2** Syscall dispatch -taulu (`kernel/syscall/dispatch.zig`)
+3. Kun vaihe valmis → nosta **Nykyinen vaihe** → **5**
 
 ---
 
-## Seuraava vaihe kun 3 on ✅: **4** (Syscalls & IPC)
+## Seuraava vaihe kun 4 on ✅: **5** (Käyttäjätila)
 
-Katso `docs/ROADMAP.md` — aloita kohdasta 4.1.
+Katso `docs/ROADMAP.md` — aloita kohdasta 5.1.
 
 ---
 
 ## Loop-säännöt
 
 1. Lue `docs/ROADMAP.md` + tämä tiedosto.
-2. Toteuta **alin keskeneräinen vaihe** (ei aina Vaihe 2).
+2. Toteuta **alin keskeneräinen vaihe** (ei Vaihe 2 uudelleen).
 3. Ylidokumentointi: `//` jokaisella rivillä uudessa Zig-koodissa.
 4. `zig build test` + boot-testi ennen committia.
 5. Kun vaihe valmis ROADMAPissa → päivitä **Nykyinen vaihe** -numero tähän tiedostoon.

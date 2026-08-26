@@ -12,10 +12,8 @@ const paging = @import("paging.zig");
 const log = @import("../../lib/log.zig");
 // Tuo UART suoraan heksadesimaalitulostukseen (runtime-arvot).
 const uart = @import("../../drivers/char/uart.zig");
-// Tuo PIC EOI timer-käsittelijään.
-const pic = @import("pic.zig");
-// PIT-tickien laskuri — taustatimer Vaihe 3:lle (volatile IRQ-kirjoituksia varten).
-var timer_ticks: u64 = 0;
+// PIT-tickien laskuri — taustatimer Vaihe 3:lle (pit_ticks.zig + timer_irq.S).
+const pit_ticks = @import("../../lib/pit_ticks.zig");
 
 // IDT-merkintä — 128-bittinen kuvaus yhdestä keskeytys/poikkeusvektorista.
 const IdtEntry = packed struct {
@@ -148,48 +146,19 @@ export fn isrStub() callconv(.naked) noreturn {
     asm volatile ("cli; hlt");
 }
 
-// Timer IRQ C-käsittelijä — EOI + tick-laskuri.
-export fn timerIrqHandlerC() callconv(.c) void {
-    // Ilmoita PIC:lle että IRQ0 on käsitelty.
-    pic.sendEoi(0);
-    // Kasvata taustatick-laskuria (atomic — IRQ vs. idle-silmukka).
-    _ = @atomicRmw(u64, &timer_ticks, .Add, 1, .seq_cst);
-}
+// Timer IRQ — assembly-toteutus timer_irq.S (ei C-kutsua).
+extern fn timerIrqHandler() callconv(.naked) noreturn;
 
 // Palauta PIT-tickien määrä.
 pub fn timerTicks() u64 {
-    // Atomic-luku — estää optimoijaa cachettamasta IRQ-päivityksiä.
-    return @atomicLoad(u64, &timer_ticks, .seq_cst);
+    // Delegoi pit_ticks-moduulille.
+    return pit_ticks.count();
 }
 
-// Timer IRQ (vektori 32) — tallentaa rekisterit, kutsuu C-käsittelijää, iretq.
-pub export fn timerIrqHandler() callconv(.naked) noreturn {
-    // Tallenna caller-saved rekisterit ennen C-kutsua.
-    asm volatile (
-        \\push %%rax
-        \\push %%rcx
-        \\push %%rdx
-        \\push %%rsi
-        \\push %%rdi
-        \\push %%rbp
-        \\push %%r8
-        \\push %%r9
-        \\push %%r10
-        \\push %%r11
-        \\call timerIrqHandlerC
-        \\pop %%r11
-        \\pop %%r10
-        \\pop %%r9
-        \\pop %%r8
-        \\pop %%rbp
-        \\pop %%rdi
-        \\pop %%rsi
-        \\pop %%rdx
-        \\pop %%rcx
-        \\pop %%rax
-        \\sti
-        \\iretq
-    );
+// Export timer-käsittelijän osoite IDT-rekisteröintiin.
+pub fn timerHandlerAddr() u64 {
+    // Palauta timerIrqHandler-funktion osoite.
+    return @intFromPtr(&timerIrqHandler);
 }
 
 // Alusta IDT — page fault #14 oikea käsittelijä, muut stub.

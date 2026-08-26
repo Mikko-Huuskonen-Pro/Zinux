@@ -7,6 +7,7 @@ pub const LimineRequests = extern struct {
     hhdm: limine.HhdmRequest,
     memmap: limine.MemoryMapRequest,
     fb: limine.FramebufferRequest,
+    smp: limine.SmpRequest,
 };
 
 export var requests_start: limine.RequestsStartMarker
@@ -18,6 +19,7 @@ export var limine_requests: LimineRequests
     .hhdm = .{},
     .memmap = .{},
     .fb = .{},
+    .smp = .{},
 };
 
 export var requests_end: limine.RequestsEndMarker

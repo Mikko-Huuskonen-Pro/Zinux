@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) void {
     });
     kernel.setLinkerScript(b.path("linker.ld"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/context_switch.S"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/timer_irq.S"));
     b.installArtifact(kernel);
 
     // --- Host-testit ---

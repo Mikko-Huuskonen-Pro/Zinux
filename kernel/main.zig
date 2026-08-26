@@ -32,6 +32,10 @@ const pic = @import("arch/x86_64/pic.zig");
 const pit = @import("drivers/timer/pit.zig");
 // Tuo scheduler — kaksi säiettä coop-yield (Vaihe 3).
 const scheduler = @import("sched/scheduler.zig");
+// Tuo SMP stub — Limine CPU-määrä (Vaihe 3).
+const smp = @import("boot/smp.zig");
+// Tuo PIT ticks — linkittää timerOnIrqC timer_irq.S:lle.
+const pit_ticks = @import("lib/pit_ticks.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -107,10 +111,14 @@ fn kmain() noreturn {
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).
     pic.unmaskIrq(0);
-    // Rekisteröi timer-käsittelijä IDT vektoriin 32.
-    idt.registerHandler(pic.TIMER_VECTOR, @intFromPtr(&idt.timerIrqHandler));
+    // Rekisteröi timer-käsittelijä IDT vektoriin 32 (assembly timer_irq.S).
+    idt.registerHandler(pic.TIMER_VECTOR, idt.timerHandlerAddr());
     // Vahvista Vaihe 3 timer-infrastruktuuri.
     log.info("Phase 3 timer OK");
+    // Logita SMP CPU-määrä Limine-vastauksesta (stub).
+    smp.initAndLog();
+    // Pakota pit_ticks linkitys (timerOnIrqC).
+    _ = pit_ticks.count();
     // Käynnistä scheduler — coop-yield tuottaa ABAB... serialissa.
     scheduler.start();
 }

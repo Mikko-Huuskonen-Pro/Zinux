@@ -65,7 +65,7 @@ zig build run
 
 ---
 
-## Vaihe 3 — Prosessit & aikataulutus 🚧
+## Vaihe 3 — Prosessit & aikataulutus ✅
 
 **Tavoite**: Useita säikeitä, kontekstinvaihto, PIT-ajastin.
 
@@ -75,8 +75,8 @@ zig build run
 | 3.2 | Prosessi & säie -rakenteet | `kernel/sched/thread.zig` | ✅ stub |
 | 3.3 | Round-robin scheduler | `kernel/sched/scheduler.zig` | ✅ coop ABAB-demo |
 | 3.4 | PIT 8254 -ajastin | `kernel/drivers/timer/pit.zig` | ✅ |
-| 3.5 | Timer IRQ → scheduler tick | `kernel/arch/x86_64/idt.zig` | 🚧 tick-laskuri; idle-poll WIP |
-| 3.6 | SMP per-CPU init (Limine) | `kernel/boot/smp.zig` | ⬜ |
+| 3.5 | Timer IRQ → scheduler tick | `kernel/arch/x86_64/idt.zig` | ✅ PIT IRQ + Phase 3 timer ticks OK |
+| 3.6 | SMP per-CPU init (Limine) | `kernel/boot/smp.zig` | ✅ CPU-määrä boot-logissa |
 
 **Testi**: Kaksi säiettä vuorottelevat tulostusta → `ABAB...` serialissa ✅
 

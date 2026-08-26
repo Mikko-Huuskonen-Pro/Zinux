@@ -135,3 +135,40 @@ pub const MemoryMapRequest = extern struct {
     revision: u64 = 0,
     response: ?*MemoryMapResponse = null,
 };
+
+// SMP CPU -kuvaus Limine-vastauksessa (AP-käynnistys myöhemmin).
+pub const SmpCpu = extern struct {
+    // Limine-processor-id (ei x2APIC id).
+    processor_id: u32,
+    // Local APIC id.
+    lapic_id: u32,
+    // Varattu — pitää olla nolla.
+    reserved: u64,
+    // AP goto-osoite (Limine asettaa).
+    goto_address: u64,
+    // Extra-argumentti AP:lle.
+    extra_argument: u64,
+};
+
+// SMP-vastaus — CPU-määrä ja taulukko SmpCpu-rakenteita.
+pub const SmpResponse = extern struct {
+    // Vastauksen revisio.
+    revision: u64,
+    // SMP flags (Limine määrittelee).
+    flags: u32,
+    // BSP:n LAPIC id.
+    bsp_lapic_id: u32,
+    // CPU:iden kokonaismäärä (BSP mukaan lukien).
+    cpu_count: u64,
+    // Osoitin cpu_count kpl SmpCpu-rakenteita.
+    cpus: ?[*]SmpCpu,
+};
+
+// SMP-pyyntö — Limine täyttää cpu_count bootissa.
+pub const SmpRequest = extern struct {
+    id: [4]u64 = id(0x95a67b819a1b857e, 0xa0b61b723b6a73e0),
+    revision: u64 = 0,
+    response: ?*SmpResponse = null,
+    // SMP flags (esim. X2APIC) — 0 oletuksena.
+    flags: u64 = 0,
+};

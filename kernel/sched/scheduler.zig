@@ -95,7 +95,7 @@ pub fn start() noreturn {
     context.switchContext(&boot_rsp, threads[0].ctx.rsp);
     // Coop-demo valmis — odota PIT-keskeytyksiä idle-tilassa.
     while (true) {
-        // STI + HLT — timer IRQ taustalla (tick-laskuri idt:ssä).
+        // STI + HLT — timer IRQ taustalla (Phase 3 timer ticks OK logitetaan IRQ:ssa).
         asm volatile ("sti; hlt" ::: .{ .memory = true });
     }
 }
