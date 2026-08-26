@@ -47,12 +47,19 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(kernel);
 
     // --- Host-testit ---
+    const pmm_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/mm/pmm.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const host_test_mod = b.createModule(.{
+        .root_source_file = b.path("tests/host/root.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    host_test_mod.addImport("pmm", pmm_mod);
     const host_tests = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("tests/host/root.zig"),
-            .target = b.graph.host,
-            .optimize = .Debug,
-        }),
+        .root_module = host_test_mod,
     });
     const run_host_tests = b.step("test", "Run host unit tests");
     run_host_tests.dependOn(&b.addRunArtifact(host_tests).step);

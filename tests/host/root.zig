@@ -15,3 +15,8 @@ test "host test infrastructure works" {
     // Varmista että allokaatio onnistui (buf.len > 0).
     try std.testing.expect(buf.len == 4);
 }
+
+// Tuo PMM-yksikkötestit.
+test {
+    _ = @import("pmm_test.zig");
+}
