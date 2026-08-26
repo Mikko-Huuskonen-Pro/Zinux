@@ -124,6 +124,7 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/syscall_entry.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_entry.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_jump.S"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/keyboard_irq.S"));
     kernel.step.dependOn(&copy_test_elf.step);
     kernel.step.dependOn(&copy_init_elf.step);
     kernel.step.dependOn(&copy_shell_elf.step);

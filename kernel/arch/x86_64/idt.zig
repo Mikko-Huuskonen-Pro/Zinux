@@ -148,6 +148,8 @@ export fn isrStub() callconv(.naked) noreturn {
 
 // Timer IRQ — assembly-toteutus timer_irq.S (ei C-kutsua).
 extern fn timerIrqHandler() callconv(.naked) noreturn;
+// Keyboard IRQ1 — assembly-toteutus keyboard_irq.S.
+extern fn keyboardIrqHandler() callconv(.naked) noreturn;
 
 // Palauta PIT-tickien määrä.
 pub fn timerTicks() u64 {
@@ -159,6 +161,12 @@ pub fn timerTicks() u64 {
 pub fn timerHandlerAddr() u64 {
     // Palauta timerIrqHandler-funktion osoite.
     return @intFromPtr(&timerIrqHandler);
+}
+
+// Export keyboard-käsittelijän osoite IDT-rekisteröintiin.
+pub fn keyboardHandlerAddr() u64 {
+    // Palauta keyboardIrqHandler-funktion osoite.
+    return @intFromPtr(&keyboardIrqHandler);
 }
 
 // Alusta IDT — page fault #14 oikea käsittelijä, muut stub.

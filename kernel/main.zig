@@ -138,6 +138,15 @@ fn kmain() noreturn {
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);
+    // Vaihe 5.4 — PS/2-näppäimistö (i8042 + IRQ1 → UART-syöttörengas).
+    const keyboard = @import("drivers/char/keyboard.zig");
+    keyboard.init();
+    // Salli keyboard IRQ1 (PIC master linja 1).
+    pic.unmaskIrq(1);
+    // Rekisteröi keyboard-käsittelijä IDT vektoriin 33.
+    idt.registerHandler(keyboard.KEYBOARD_VECTOR, idt.keyboardHandlerAddr());
+    // Boot-testi: simuloi scancodet (CI ilman fyysistä näppäimistöä).
+    keyboard.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).
