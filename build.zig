@@ -68,6 +68,29 @@ pub fn build(b: *std.Build) void {
     copy_test_elf.addFileArg(embedded_elf_path);
     copy_test_elf.step.dependOn(&user_test_exe.step);
 
+    // --- Init-prosessi user-ELF (Vaihe 5.2) — upotetaan kerneliin ---
+    const init_mod = b.createModule(.{
+        .root_source_file = b.path("userland/init/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    init_mod.red_zone = false;
+    init_mod.stack_protector = false;
+    init_mod.single_threaded = true;
+    const init_exe = b.addExecutable(.{
+        .name = "zinux-init",
+        .root_module = init_mod,
+    });
+    init_exe.setLinkerScript(b.path("userland/init/user.ld"));
+    init_exe.root_module.addAssemblyFile(b.path("userland/init/start.S"));
+    b.installArtifact(init_exe);
+
+    const embedded_init_path = b.path("kernel/loader/init_prog.bin");
+    const copy_init_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_init_elf.addFileArg(init_exe.getEmittedBin());
+    copy_init_elf.addFileArg(embedded_init_path);
+    copy_init_elf.step.dependOn(&init_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -79,6 +102,7 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_entry.S"));
     kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/usermode_jump.S"));
     kernel.step.dependOn(&copy_test_elf.step);
+    kernel.step.dependOn(&copy_init_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---

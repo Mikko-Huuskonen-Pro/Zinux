@@ -5,6 +5,7 @@ zig-out/
 
 # Generoitu loader-testi ELF (build.zig kopioi ennen kernel-käännöstä).
 kernel/loader/test_prog.bin
+kernel/loader/init_prog.bin
 
 # Editorit
 .idea/

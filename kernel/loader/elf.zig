@@ -14,18 +14,14 @@ const paging = @import("../arch/x86_64/paging.zig");
 const usermode = @import("../arch/x86_64/usermode.zig");
 // Tuo lokitus boot-viesteihin.
 const log = @import("../lib/log.zig");
+// Tuo heap-alue — pinon virtuaaliosoitteet.
+const heap = @import("../mm/heap.zig");
 
 // Upotettu loader-testi ELF — build.zig kopioi user-bin:n tähän ennen kernel-käännöstä.
 const test_elf = @embedFile("test_prog.bin");
 
-// Ring 3 pinon virtuaaliosoite — loader-testin stack (slot 33 heapin jälkeen).
-const heap = @import("../mm/heap.zig");
-// Pinon sivu heti ELF LOAD-alueen jälkeen.
-const USER_STACK_SLOT: u64 = 33;
-// Pinon sivun alku.
-const USER_STACK_BASE: u64 = heap.HEAP_START + USER_STACK_SLOT * paging.PAGE_SIZE;
-// Pinon yläreuna (16 tavun aligned iretq:ä varten).
-const USER_STACK_TOP: u64 = USER_STACK_BASE + paging.PAGE_SIZE - 16;
+// Loader-testin pinon heap-slot (slot 33).
+const LOADER_TEST_STACK_SLOT: u64 = 33;
 
 // Ladattu käyttäjäkuva — entry + pinon huippu.
 pub const LoadedImage = struct {
@@ -92,14 +88,26 @@ fn copySegmentData(seg: core.LoadSegment, elf_data: []const u8) bool {
     return true;
 }
 
-// Kartoita käyttäjäpinon yksi sivu.
-fn mapUserStack() bool {
-    // Kartoita pinosivu (writable, ei executable).
-    return mapUserPage(USER_STACK_BASE, false);
+// Laske pinon sivun virtuaalinen alku annetusta heap-slotista.
+fn stackBaseForSlot(stack_slot: u64) u64 {
+    // HEAP_START + slot * 4 KiB.
+    return heap.HEAP_START + stack_slot * paging.PAGE_SIZE;
 }
 
-// Lataa jäsennetty ELF muistiiin — palauta entry ja stack_top.
-pub fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8) bool {
+// Laske pinon yläreuna iretq:ä varten (16 tavun aligned).
+fn stackTopForSlot(stack_slot: u64) u64 {
+    // Yksi sivu pinolle — yläreuna - 16 tavua.
+    return stackBaseForSlot(stack_slot) + paging.PAGE_SIZE - 16;
+}
+
+// Kartoita käyttäjäpinon yksi sivu annettuun osoitteeseen.
+fn mapUserStackAt(stack_base: u64) bool {
+    // Kartoita pinosivu (writable, ei executable).
+    return mapUserPage(stack_base, false);
+}
+
+// Lataa jäsennetty ELF muistiiin — pinon sivu stack_base:ssa.
+fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8, stack_base: u64) bool {
     // Kartoita jokainen PT_LOAD-segmentti.
     for (parsed.segments) |seg| {
         // Suoritettavuus PF_X-bitistä.
@@ -109,31 +117,39 @@ pub fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8) bool {
         // Kopioi tiedot ELF-blobista segmenttiin.
         if (!copySegmentData(seg, elf_data)) return false;
     }
-    // Kartoita erillinen käyttäjäpinon sivu.
-    if (!mapUserStack()) return false;
+    // Kartoita erillinen käyttäjäpinon sivu annettuun osoitteeseen.
+    if (!mapUserStackAt(stack_base)) return false;
     // Kaikki segmentit + pino valmiina.
     return true;
 }
 
-// Lataa ELF blobista — jäsentää ja kartoittaa.
-pub fn loadElf(elf_data: []const u8) ?LoadedImage {
+// Lataa ELF blobista — jäsentää, kartoittaa ja palauttaa entry + stack_top.
+pub fn loadElfWithStack(elf_data: []const u8, stack_slot: u64) ?LoadedImage {
     // Segmenttipuskuri parseElf:lle.
     var segments: [core.MAX_LOAD_SEGMENTS]core.LoadSegment = undefined;
     // Jäsennä ELF-otsikko ja PT_LOAD:t.
     const parsed = core.parseElf(elf_data, &segments) catch return null;
+    // Pinon sivun alku valitusta slotista.
+    const stack_base = stackBaseForSlot(stack_slot);
     // Kartoita segmentit ja pino.
-    if (!loadParsed(parsed, elf_data)) return null;
+    if (!loadParsed(parsed, elf_data, stack_base)) return null;
     // Palauta hyppypiste ja pinon yläreuna.
     return .{
         .entry = parsed.entry,
-        .stack_top = USER_STACK_TOP,
+        .stack_top = stackTopForSlot(stack_slot),
     };
+}
+
+// Lataa ELF blobista — oletuspino (loader-testi slot 33).
+pub fn loadElf(elf_data: []const u8) ?LoadedImage {
+    // Delegoi stack_slot-parametrilla.
+    return loadElfWithStack(elf_data, LOADER_TEST_STACK_SLOT);
 }
 
 // Boot-testi — lataa upotettu ELF, aja ring 3 (sys_write "elf" + paluu).
 pub fn runBootTest() void {
     // Lataa test_elf blob kernel-muistiin / sivuja.
-    const loaded = loadElf(test_elf) orelse {
+    const loaded = loadElfWithStack(test_elf, LOADER_TEST_STACK_SLOT) orelse {
         // Jäsentäminen tai kartoitus epäonnistui.
         log.err("ELF load failed");
         return;

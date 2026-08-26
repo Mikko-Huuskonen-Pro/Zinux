@@ -129,6 +129,9 @@ fn kmain() noreturn {
     // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".
     const elf_loader = @import("loader/elf.zig");
     elf_loader.runBootTest();
+    // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
+    const init_proc = @import("init.zig");
+    init_proc.launch();
     // --- Vaihe 3: aikataulutus ---
     // Remapaa PIC IRQ:t vektoreihin 32..47.
     pic.remap(32);
