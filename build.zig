@@ -44,6 +44,7 @@ pub fn build(b: *std.Build) void {
         .root_module = kernel_mod,
     });
     kernel.setLinkerScript(b.path("linker.ld"));
+    kernel.root_module.addAssemblyFile(b.path("kernel/arch/x86_64/context_switch.S"));
     b.installArtifact(kernel);
 
     // --- Host-testit ---

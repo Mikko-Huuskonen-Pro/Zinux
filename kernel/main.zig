@@ -30,6 +30,8 @@ const memtest = @import("mm/memtest.zig");
 const pic = @import("arch/x86_64/pic.zig");
 // Tuo PIT — timer IRQ0 aikataulutusta varten (Vaihe 3).
 const pit = @import("drivers/timer/pit.zig");
+// Tuo scheduler — kaksi säiettä coop-yield (Vaihe 3).
+const scheduler = @import("sched/scheduler.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -107,17 +109,8 @@ fn kmain() noreturn {
     pic.unmaskIrq(0);
     // Rekisteröi timer-käsittelijä IDT vektoriin 32.
     idt.registerHandler(pic.TIMER_VECTOR, @intFromPtr(&idt.timerIrqHandler));
-    // Vahvista Vaihe 3 timer-infrastruktuuri (scheduler WIP).
+    // Vahvista Vaihe 3 timer-infrastruktuuri.
     log.info("Phase 3 timer OK");
-    // Boot valmis — CI etsii Zinux boot OK (tulostettu yllä).
-    // Siirry idle-silmukkaan — scheduler.start() seuraavassa commitissa.
-    idleLoop();
-}
-
-// Pysäytä CPU kunnes keskeytys — timer tick taustalla.
-fn idleLoop() noreturn {
-    // Ikuisesti: nukahda keskeytyksiin (PIT IRQ tickittää).
-    while (true) {
-        asm volatile ("sti; hlt");
-    }
+    // Käynnistä scheduler — coop-yield tuottaa ABAB... serialissa.
+    scheduler.start();
 }

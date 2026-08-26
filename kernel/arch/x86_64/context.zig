@@ -1,7 +1,7 @@
 //! CPU-kontekstin tallennus ja vaihto x86_64:ssa.
 //!
 //! **Vastuu**: RSP-pohjainen kontekstinvaihto säikeiden välillä.
-//! **Riippuvuudet**: ei
+//! **Riippuvuudet**: `context_switch.S`
 //! **Käytetään**: `sched/scheduler.zig`
 
 // Tallennettu CPU-konteksti — toistaiseksi vain pinon osoitin.
@@ -10,32 +10,31 @@ pub const CpuContext = struct {
     rsp: u64,
 };
 
-// Vaihda säie: tallenna nykyinen RSP ja lataa seuraavan RSP, sitten ret.
-pub export fn switchContext(prev_rsp: *u64, next_rsp: u64) callconv(.c) void {
-    // Sidonta parametrit asm:iin — estää unused-varoituksen.
-    const prev = prev_rsp;
-    const next = next_rsp;
-    // Tallenna nykyinen RSP, lataa uusi, hyppää ret:llä uuden pinon return-osoitteeseen.
-    asm volatile (
-        \\mov %%rsp, (%[prev])
-        \\mov %[next], %%rsp
-        \\ret
-        :
-        : [prev] "r" (prev),
-          [next] "r" (next),
-        : .{ .memory = true });
+// Callee-saved rekisterit joita pushataan ennen kontekstinvaihtoa.
+const CALLEE_PUSHES: usize = 6;
+
+// Assembly-toteutus context_switch.S — ei kääntäjän prologia/epilogia.
+extern fn switchContextAsm(prev_rsp: *u64, next_rsp: u64) callconv(.c) void;
+
+// Zig-kääre assembly-funktiolle.
+pub fn switchContext(prev_rsp: *u64, next_rsp: u64) void {
+    // Delegoi context_switch.S switchContextAsm-symbolille.
+    switchContextAsm(prev_rsp, next_rsp);
 }
 
-// Alusta uuden säikeen pinon — pushaa entry-osoitteen ja palauta RSP.
+// Alusta uuden säikeen pinon — 6 dummy pop:ia + entry return-osoite.
 pub fn initStack(stack: []u8, entry: *const fn () callconv(.c) void) u64 {
     // Pinon yläreuna (kasvaa alaspäin).
     var sp: u64 = @intFromPtr(stack.ptr) + stack.len;
-    // x86_64 ABI vaatii 16-tavun pinon tasaus ennen call/ret.
+    // 16-tavun tasaus alaspäin (x86_64 ABI vaatii ret→entry jälkeen RSP%16==8).
     sp &= ~@as(u64, 15);
-    // Varaa tila return-osoitteelle.
-    sp -= 8;
-    // Kirjoita entry-osoite pinolle — ret hyppää tähän.
-    @as(*u64, @ptrFromInt(sp)).* = @intFromPtr(entry);
-    // Palauta alustettu RSP.
-    return sp;
+    // Entry-osoite 16-tavun aligned slotissa (ret pop:ien jälkeen RSP%16==8).
+    const entry_slot = sp - 16;
+    @as(*u64, @ptrFromInt(entry_slot)).* = @intFromPtr(entry);
+    // Dummy-arvot pop r15..rbx:lle (ensimmäisellä switch-to-this).
+    const dummy_base = entry_slot - @as(u64, CALLEE_PUSHES) * 8;
+    const callee_area: [*]u8 = @ptrFromInt(dummy_base);
+    @memset(callee_area[0 .. CALLEE_PUSHES * 8], 0);
+    // RSP osoittaa dummy-blokin alkuun — switchContext pop + ret toimii.
+    return dummy_base;
 }

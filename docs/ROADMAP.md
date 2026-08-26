@@ -73,12 +73,12 @@ zig build run
 |---|---------|----------|------|
 | 3.1 | CPU-konteksti (save/restore) | `kernel/arch/x86_64/context.zig` | ✅ RSP switch |
 | 3.2 | Prosessi & säie -rakenteet | `kernel/sched/thread.zig` | ✅ stub |
-| 3.3 | Round-robin scheduler | `kernel/sched/scheduler.zig` | 🚧 coop-yield WIP |
+| 3.3 | Round-robin scheduler | `kernel/sched/scheduler.zig` | ✅ coop ABAB-demo |
 | 3.4 | PIT 8254 -ajastin | `kernel/drivers/timer/pit.zig` | ✅ |
 | 3.5 | Timer IRQ → scheduler tick | `kernel/arch/x86_64/idt.zig` | ✅ tick-laskuri |
 | 3.6 | SMP per-CPU init (Limine) | `kernel/boot/smp.zig` | ⬜ |
 
-**Testi**: Kaksi säiettä vuorottelevat tulostusta → `[A][B][A][B]...` (WIP)
+**Testi**: Kaksi säiettä vuorottelevat tulostusta → `ABAB...` serialissa ✅
 
 ---
 
