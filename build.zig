@@ -54,6 +54,15 @@ pub fn build(b: *std.Build) void {
     });
     kernel_mod.addImport("zinuxabi", abi_mod);
 
+    // Prosessitaulukko — capability-slotit per pid (Vaihe 20).
+    const process_core_kernel_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/sched/process_core.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    process_core_kernel_mod.single_threaded = true;
+    kernel_mod.addImport("process_core", process_core_kernel_mod);
+
     // Boot-tila kernelille (smoke / full / dev).
     const boot_options = b.addOptions();
     boot_options.addOption(@TypeOf(boot_mode), "mode", boot_mode);
@@ -606,6 +615,13 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const process_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/sched/process_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    // capability_core käyttää prosessitaulukkoa slotteihin (Vaihe 20).
+    capability_core_mod.addImport("process_core", process_core_mod);
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -628,6 +644,7 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("cap_syscall_core", cap_syscall_core_mod);
     host_test_mod.addImport("cap_core", cap_core_mod);
     host_test_mod.addImport("ipc_block_core", ipc_block_core_mod);
+    host_test_mod.addImport("process_core", process_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });

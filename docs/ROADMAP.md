@@ -336,7 +336,7 @@ zig build run
 | Vaihe | Teema | Tavoite |
 |-------|-------|---------|
 | **19** | IPC jonon kapasiteetti | `pending` / `flush` / `queueCapacity` introspection trio | ✅ |
-| **20** | Prosessitaulukko | Erilliset capability-slotit per pid |
+| **20** | Prosessitaulukko | Erilliset capability-slotit per pid | ✅ |
 | **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) |
 | **22** | Cross-process IPC | Viesti prosessista A → prosessiin B |
 
@@ -359,15 +359,15 @@ zig build run
 
 ---
 
-## Vaihe 20 — Prosessitaulukko ja capabilityt per prosessi ⬜
+## Vaihe 20 — Prosessitaulukko ja capabilityt per prosessi ✅
 
 **Tavoite**: Kernel erottaa capability-slotit prosessikohtaisesti; nykyinen yksi stub-prosessi (pid 1) laajenee prosessitaulukoksi.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 20.1 | Process-rakenne + slotit per pid | `kernel/sched/process.zig`, `capability_core.zig` | ⬜ lookupSlot(pid, slot) |
-| 20.2 | Syscall-konteksti: current pid | `dispatch.zig`, `syscall_entry` | ⬜ getpid palauttaa oikean pid:n |
-| 20.3 | Boot-testi: kaksi prosessia samassa taulukossa | host-testit + kernel smoke | ⬜ Process table OK |
+| 20.1 | Process-rakenne + slotit per pid | `kernel/sched/process.zig`, `capability_core.zig` | ✅ lookupSlotForPid(pid, slot) |
+| 20.2 | Syscall-konteksti: current pid | `dispatch.zig`, `usermode.zig` | ✅ getpid palauttaa current pid |
+| 20.3 | Boot-testi: kaksi prosessia samassa taulukossa | host-testit + kernel smoke | ✅ Process table OK |
 
 **Huom**: Vaihe ei vielä käynnistä toista ELF:ää — valmistelee cross-process IPC:tä.
 

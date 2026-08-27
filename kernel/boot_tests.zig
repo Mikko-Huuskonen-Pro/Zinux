@@ -37,6 +37,9 @@ pub fn runAll() void {
     // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
     const cap_audit = @import("ipc/cap_audit.zig");
     cap_audit.runBootTest();
+    // Vaihe 20 — prosessitaulukko + capability-slotit per pid + getpid.
+    const process_boot = @import("sched/process.zig");
+    process_boot.runBootTest();
     // Vaihe 7.5 — syscall dispatch -fuzz (ENOSYS tuntemattomille).
     const syscall_fuzz = @import("syscall/syscall_fuzz.zig");
     syscall_fuzz.runBootTest();

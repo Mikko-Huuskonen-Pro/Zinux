@@ -5,10 +5,9 @@
 
 ---
 
-## Nykyinen vaihe: **20** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **21** (ei vielä ROADMAPissa) ⬜
 
-**Branch**: `cursor/zinux-architecture-plan-4d97`  
-**PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
+**Branch**: `cursor/process-table-phase20-4d97`  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
@@ -35,11 +34,12 @@
 | 17 IPC jonon tyhjennys | ✅ |
 | 18 Capability resurssitunniste | ✅ |
 | 19 IPC jonon kapasiteetti | ✅ |
+| 20 Prosessitaulukko | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 20)
+### Tämän kierroksen prioriteetti (Vaihe 21)
 
-**Prosessitaulukko** — capability-slotit per prosessi (`kernel/sched/process.zig`).  
-Katso `docs/ROADMAP.md` vaiheet 20–22 (20 ensin, sitten spawn + cross-process IPC).
+**Prosessin luonti** — `sys_spawn` + toinen user-ELF erillisenä prosessina.  
+Katso `docs/ROADMAP.md` vaiheet 21–22 (spawn ensin, sitten cross-process IPC).
 
 ---
 

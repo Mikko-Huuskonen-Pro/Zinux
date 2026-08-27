@@ -8,6 +8,8 @@
 const audit = @import("cap_audit_core");
 // Tuo porttien ydin — vapauta IPC-portti portti-capabilityn peruutuksessa.
 const port_core = @import("port_core.zig");
+// Tuo prosessitaulukko — capability-slotit per pid (Vaihe 20).
+const process = @import("process_core");
 
 // Capability-objektin tyyppi — mitä resurssia handle edustaa.
 pub const CapType = enum(u8) {
@@ -70,10 +72,10 @@ pub const MAX_SLOTS: usize = 32;
 var objects: [MAX_OBJECTS]CapObject = undefined;
 // Seuraava vapaa object_id (1..MAX_OBJECTS-1) — ei käytössä indeksipohjaisessa mallissa.
 var next_object_id: u32 = 1;
-// Prosessin capability-slotit (stub: yksi prosessi).
-var slots: [MAX_SLOTS]CapRef = undefined;
-// Montako slottia on käytössä.
-var slot_count: usize = 0;
+// Capability-slotit prosessikohtaisesti — [prosessi-indeksi][slot].
+var slots: [process.MAX_PROCESSES][MAX_SLOTS]CapRef = undefined;
+// Montako slottia kussakin prosessissa on käytössä.
+var slot_counts: [process.MAX_PROCESSES]usize = .{0} ** process.MAX_PROCESSES;
 // Onko ydin alustettu.
 var initialized: bool = false;
 
@@ -116,6 +118,8 @@ pub fn rightsIntersect(a: Rights, b: Rights) Rights {
 
 // Nollaa objektit ja slotit — kutsutaan bootissa ja testeissä.
 pub fn initCore() void {
+    // Alusta prosessitaulukko (rekisteröi boot-pid 1).
+    process.initCore();
     // Nollaa audit-loki samalla (create/delegate lokitus).
     audit.initCore();
     // Tyhjennä kaikki objektipaikat.
@@ -129,15 +133,20 @@ pub fn initCore() void {
         // Ei objektitunnistetta.
         obj.object_id = 0;
     }
-    // Tyhjennä slotit.
-    for (&slots) |*slot| {
-        // Ei objektiviitettä.
-        slot.object_id = 0;
-        // Ei oikeuksia.
-        slot.rights = .{};
+    // Tyhjennä jokaisen prosessin slotit.
+    var pi: usize = 0;
+    while (pi < process.MAX_PROCESSES) : (pi += 1) {
+        // Nollaa slottilaskuri.
+        slot_counts[pi] = 0;
+        // Tyhjennä slotitaulukko.
+        var si: usize = 0;
+        while (si < MAX_SLOTS) : (si += 1) {
+            // Ei objektiviitettä.
+            slots[pi][si].object_id = 0;
+            // Ei oikeuksia.
+            slots[pi][si].rights = .{};
+        }
     }
-    // Nollaa slottilaskuri.
-    slot_count = 0;
     // Ensimmäinen id alkaa 1:stä (0 = virheellinen).
     next_object_id = 1;
     // Merkitse alustetuksi.
@@ -191,25 +200,27 @@ pub fn getObject(id: u32) ?*CapObject {
     return obj;
 }
 
-// Asenna capability slottiin — palauttaa slot-indeksin.
-pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
+// Asenna capability annetun prosessin slottiin — palauttaa slot-indeksin.
+pub fn installSlotForPid(pid: u64, object_id: u32, rights: Rights) ?u32 {
     // Vaadi alustus.
     if (!initialized) return null;
     // Objektin pitää olla olemassa.
     if (getObject(object_id) == null) return null;
-    // Etsi vapaa slotti.
-    if (slot_count >= MAX_SLOTS) return null;
-    // Uuden slotin indeksi.
-    const slot_idx: u32 = @intCast(slot_count);
+    // Hae prosessin taulukkoindeksi.
+    const proc_idx = process.findIndex(pid) orelse return null;
+    // Slottitaulukko täynnä tälle prosessille.
+    if (slot_counts[proc_idx] >= MAX_SLOTS) return null;
+    // Uuden slotin indeksi prosessin slot-listassa.
+    const slot_idx: u32 = @intCast(slot_counts[proc_idx]);
     // Täytä slotti.
-    slots[slot_count] = .{
+    slots[proc_idx][slot_counts[proc_idx]] = .{
         // Viite objektiin.
         .object_id = object_id,
         // Alkuperäiset oikeudet.
         .rights = rights,
     };
-    // Kasvata slottien määrää.
-    slot_count += 1;
+    // Kasvata prosessin slottilaskuria.
+    slot_counts[proc_idx] += 1;
     // Hae objekti audit-merkintää varten.
     const obj = getObject(object_id) orelse return null;
     // Audit: capability asennettu slottiin.
@@ -218,14 +229,28 @@ pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
     return slot_idx;
 }
 
-// Hae slotti indeksillä.
-pub fn lookupSlot(slot_idx: u32) ?CapRef {
+// Asenna capability nykyisen prosessin slottiin — palauttaa slot-indeksin.
+pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
+    // Delegoi nykyisen prosessin asennukseen.
+    return installSlotForPid(process.currentPid(), object_id, rights);
+}
+
+// Hae capability-slotti annetulta prosessilta.
+pub fn lookupSlotForPid(pid: u64, slot_idx: u32) ?CapRef {
     // Vaadi alustus.
     if (!initialized) return null;
-    // Indeksi rajojen sisällä.
-    if (slot_idx >= slot_count) return null;
+    // Hae prosessin taulukkoindeksi.
+    const proc_idx = process.findIndex(pid) orelse return null;
+    // Indeksi rajojen sisällä tälle prosessille.
+    if (slot_idx >= slot_counts[proc_idx]) return null;
     // Palauta kopio slotista.
-    return slots[@intCast(slot_idx)];
+    return slots[proc_idx][@intCast(slot_idx)];
+}
+
+// Hae slotti nykyiseltä prosessilta.
+pub fn lookupSlot(slot_idx: u32) ?CapRef {
+    // Delegoi nykyisen prosessin lookupiin.
+    return lookupSlotForPid(process.currentPid(), slot_idx);
 }
 
 // Hae capability-slotin objektityyppi — null jos slotti mitätöity.
@@ -309,15 +334,21 @@ pub fn revokeObject(object_id: u32) bool {
         // Tuhoa portin jono — vapauttaa port_id uudelleenkäyttöön.
         _ = port_core.destroyPort(@intCast(resource_id));
     }
-    // Poista slot-viitteet tähän objektiin.
-    var i: usize = 0;
-    while (i < slot_count) : (i += 1) {
-        // Jos slotti viittaa peruttavaan objektiin.
-        if (slots[i].object_id == object_id) {
-            // Nollaa slotti (ei tiivistetä listaa boot-stubissa).
-            slots[i].object_id = 0;
-            // Poista oikeudet.
-            slots[i].rights = .{};
+    // Poista slot-viitteet tähän objektiin kaikista prosesseista.
+    var pi: usize = 0;
+    while (pi < process.MAX_PROCESSES) : (pi += 1) {
+        // Ohita prosessit ilman slotteja.
+        if (slot_counts[pi] == 0) continue;
+        // Käy prosessin slotit.
+        var si: usize = 0;
+        while (si < slot_counts[pi]) : (si += 1) {
+            // Jos slotti viittaa peruttavaan objektiin.
+            if (slots[pi][si].object_id == object_id) {
+                // Nollaa slotti (ei tiivistetä listaa boot-stubissa).
+                slots[pi][si].object_id = 0;
+                // Poista oikeudet.
+                slots[pi][si].rights = .{};
+            }
         }
     }
     // Audit: objekti peruutettu.
@@ -335,6 +366,6 @@ pub fn createAndInstall(
 ) ?u32 {
     // Luo kernel-objekti.
     const obj_id = createObject(typ, owner_pid, resource_id) orelse return null;
-    // Asenna slottiin — palauta slot-indeksi (käyttäjän handle stub).
-    return installSlot(obj_id, rights);
+    // Asenna slottiin omistajaprosessille — palauta slot-indeksi.
+    return installSlotForPid(owner_pid, obj_id, rights);
 }

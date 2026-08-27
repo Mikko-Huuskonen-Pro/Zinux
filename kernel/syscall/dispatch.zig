@@ -28,6 +28,8 @@ const ipc_block_core = @import("ipc_block_core.zig");
 const cap = @import("../ipc/capability_core.zig");
 // Tuo capability-syscall-ydin — rights_mask dekoodaus.
 const cap_core = @import("cap_syscall_core.zig");
+// Tuo prosessitaulukko — current pid getpid-syscallille (Vaihe 20).
+const process = @import("process_core");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -127,10 +129,10 @@ fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     unreachable;
 }
 
-// sys_getpid — palauta prosessitunniste (stub aina 1).
+// sys_getpid — palauta nykyisen prosessin tunniste.
 fn sysGetpid(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
-    // Yksittäinen kernel-prosessi stub.
-    return 1;
+    // Delegoi prosessitaulukon current pid:lle.
+    return @intCast(process.currentPid());
 }
 
 // sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
