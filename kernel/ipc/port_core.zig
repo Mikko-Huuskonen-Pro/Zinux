@@ -182,6 +182,26 @@ pub fn pendingCount(port_id: u32) ?u8 {
     return p.count;
 }
 
+// Tyhjennä portin viestijono poistamatta porttia — palauttaa poistettujen viestien määrä.
+pub fn flushQueue(port_id: u32) PortError!u8 {
+    // Vaadi alustus.
+    if (!initialized) return error.NotInitialized;
+    // Hae portti.
+    const p = getPort(port_id) orelse return error.NotFound;
+    // Tallenna poistettavien viestien määrä ennen nollausta.
+    const flushed = p.count;
+    // Nollaa rengasjono.
+    p.head = 0;
+    // Nollaa tail.
+    p.tail = 0;
+    // Tyhjä jono.
+    p.count = 0;
+    // Muistiesto — flush näkyy recv-kuuntelijalle.
+    asm volatile ("" ::: .{ .memory = true });
+    // Palauta poistettujen viestien määrä.
+    return flushed;
+}
+
 // Tuhoa portti — tyhjentää jonon.
 pub fn destroyPort(port_id: u32) bool {
     // Hae portti.

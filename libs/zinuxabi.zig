@@ -34,6 +34,8 @@ pub const SYS_ipc_pending: u64 = 14;
 pub const SYS_cap_get_rights: u64 = 15;
 // Syscall-numero: sys_cap_get_type(slot) → capability-tyyppi tai neg. virhe.
 pub const SYS_cap_get_type: u64 = 16;
+// Syscall-numero: sys_ipc_flush(slot) → poistettujen viestien määrä.
+pub const SYS_ipc_flush: u64 = 17;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

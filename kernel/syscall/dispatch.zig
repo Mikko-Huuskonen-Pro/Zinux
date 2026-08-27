@@ -324,6 +324,16 @@ fn sysIpcTryRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(recv_len);
 }
 
+// sys_ipc_flush — tyhjennä capability-slotin portin viestijono.
+fn sysIpcFlush(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Tyhjennä jono recv-oikeudella varustetusta slotista.
+    const flushed = port.flushViaSlot(slot_idx) catch |err| return ipc_core.mapPortError(err);
+    // Palauta poistettujen viestien määrä.
+    return @intCast(flushed);
+}
+
 // sys_ipc_pending — palauta capability-slotin portin jonossa olevien viestien määrä.
 fn sysIpcPending(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Capability-slott indeksi.
@@ -477,6 +487,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_try_recv)] = sysIpcTryRecv;
     // Rekisteröi sys_ipc_pending (jonossa olevien viestien määrä).
     table[@intCast(abi.SYS_ipc_pending)] = sysIpcPending;
+    // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
+    table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
     table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
     // Rekisteröi sys_cap_create (uusi capability-portti).

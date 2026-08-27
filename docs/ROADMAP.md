@@ -294,6 +294,23 @@ zig build run
 
 ---
 
+## Vaihe 17 — IPC portin jonon tyhjennys ✅
+
+**Tavoite**: Ring 3 voi tyhjentää capability-slotin portin viestijonon `sys_ipc_flush`-syscallilla ilman recv:ää.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 17.1 | sys_ipc_flush | `kernel/syscall/dispatch.zig`, `port_core.zig`, `ipc_flush_syscall.zig` | ✅ invoke + IPC flush syscall OK |
+| 17.2 | Userland ipc.flush | `userland/lib/ipc.zig`, `userland/ipc_flush_test/` | ✅ userland ipc flush OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC flush syscall OK, userland ipc flush OK, Userland IPC flush test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -314,6 +331,7 @@ graph TD
     V13 --> V14[Vaihe 14: IPC pending]
     V14 --> V15[Vaihe 15: Cap get rights]
     V15 --> V16[Vaihe 16: Cap get type]
+    V16 --> V17[Vaihe 17: IPC flush]
 ```
 
 ---

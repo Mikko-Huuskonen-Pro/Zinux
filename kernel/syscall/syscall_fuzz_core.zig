@@ -51,6 +51,8 @@ pub fn isRegistered(num: u64) bool {
         15 => true,
         // sys_cap_get_type.
         16 => true,
+        // sys_ipc_flush.
+        17 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };

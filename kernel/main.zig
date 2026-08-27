@@ -242,6 +242,12 @@ fn kmain() noreturn {
     // Vaihe 16 — sys_cap_get_type + port vapautus revoke:ssa + userland cap.getType.
     const cap_get_type = @import("cap_get_type.zig");
     cap_get_type.runBootTest();
+    // Vaihe 17.1 — sys_ipc_flush syscall (invoke + IPC flush syscall OK).
+    const ipc_flush_syscall = @import("syscall/ipc_flush_syscall.zig");
+    ipc_flush_syscall.runBootTest();
+    // Vaihe 17.2 — userland ipc.flush (ring 3 queue flush).
+    const ipc_flush_userland = @import("ipc_flush_userland.zig");
+    ipc_flush_userland.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

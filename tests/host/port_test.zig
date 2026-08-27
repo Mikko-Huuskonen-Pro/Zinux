@@ -41,6 +41,25 @@ test "port queue full and empty" {
     try std.testing.expectError(error.Empty, port.recv(id, &buf));
 }
 
+test "port flush queue" {
+    // Puhdas tila.
+    port.initCore();
+    // Luo portti.
+    const id = port.createPort() orelse return error.TestFailed;
+    // Lähetä kaksi viestiä.
+    _ = try port.send(id, "a");
+    _ = try port.send(id, "b");
+    // Kaksi odottavaa viestiä.
+    try std.testing.expectEqual(@as(u8, 2), port.pendingCount(id).?);
+    // Tyhjennä jono — poistaa kaksi viestiä.
+    try std.testing.expectEqual(@as(u8, 2), try port.flushQueue(id));
+    // Tyhjä jono flushin jälkeen.
+    try std.testing.expectEqual(@as(u8, 0), port.pendingCount(id).?);
+    // Recv epäonnistuu tyhjällä jonolla.
+    var buf: [4]u8 = undefined;
+    try std.testing.expectError(error.Empty, port.recv(id, &buf));
+}
+
 test "port pending count" {
     // Puhdas tila.
     port.initCore();
