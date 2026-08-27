@@ -167,6 +167,9 @@ pub fn runAll() void {
     // Vaihe 22.3 — userland cross-IPC sender/receiver ring 3:ssa.
     const cross_ipc_userland = @import("cross_ipc_userland.zig");
     cross_ipc_userland.runBootTest();
+    // Vaihe 23 — cap_create currentPid (S1) + sys_ps prosessitaulukosta.
+    const ps_syscall = @import("syscall/ps_syscall.zig");
+    ps_syscall.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

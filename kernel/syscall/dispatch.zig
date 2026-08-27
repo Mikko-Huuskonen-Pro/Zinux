@@ -32,6 +32,8 @@ const cap_core = @import("cap_syscall_core.zig");
 const process = @import("process_core");
 // Tuo spawn — sys_spawn upotetuista ELF:istä (Vaihe 21).
 const spawn = @import("../spawn.zig");
+// Tuo ps-ydin — prosessilistan muotoilu sys_ps:lle (Vaihe 23).
+const ps_core = @import("ps_syscall_core.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -502,27 +504,42 @@ fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     const rights: cap.Rights = @bitCast(rights_raw);
     // Luo fyysinen IPC-portti.
     const port_id = port.createPort() orelse return abi.EINVAL;
-    // Asenna capability portille — palauta slot-indeksi.
-    const slot = cap.createAndInstall(.port, 1, port_id, rights) orelse return abi.EINVAL;
+    // Asenna capability nykyisen prosessin slottiin (Vaihe 23 security S1).
+    const owner = process.currentPid();
+    const slot = cap.createAndInstall(.port, owner, port_id, rights) orelse return abi.EINVAL;
     // Palauta uuden capability-slotin indeksi.
     return @intCast(slot);
 }
 
-// sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
+// Callback ps_core:lle — pid taulukko-indeksillä.
+fn psPidAt(index: usize) ?u64 {
+    // Delegoi prosessitaulukon pidAt:lle.
+    return process.pidAt(index);
+}
+
+// Callback ps_core:lle — onko prosessilla ladattu ELF.
+fn psLoadedAt(pid: u64) bool {
+    // Delegoi prosessitaulukon isLoaded:lle.
+    return process.isLoaded(pid);
+}
+
+// sys_ps — täytä käyttäjän puskuri prosessitaulukon listalla (Vaihe 23).
 fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Käyttäjän puskurin osoite.
     const user: [*]u8 = @ptrFromInt(a1);
     // Puskurin enimmäispituus.
     const user_len = a2;
-    // Staattinen prosessilista (kernel-säikeet + user stub).
-    const listing =
-        \\  PID  NAME
-        \\    0  kernel
-        \\    1  shell
-        \\
-    ;
-    // Kopioi lista käyttäjän puskuriin.
-    return copyToUser(user, user_len, listing, listing.len);
+    // Kernel-puskuri muotoilua varten.
+    var kbuf: [256]u8 = undefined;
+    // Muotoile prosessilista prosessitaulukosta.
+    const klen = ps_core.formatListing(
+        process.processCount(),
+        psPidAt,
+        psLoadedAt,
+        &kbuf,
+    );
+    // Kopioi muotoiltu teksti käyttäjän puskuriin.
+    return copyToUser(user, user_len, kbuf[0..klen], klen);
 }
 
 // Dispatch-taulukko — indeksi = syscall-numero (max 31).

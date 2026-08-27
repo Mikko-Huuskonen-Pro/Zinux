@@ -105,3 +105,8 @@ test {
 test {
     _ = @import("process_test.zig");
 }
+
+// Tuo ps-syscall-ydin-yksikkötestit (Vaihe 23).
+test {
+    _ = @import("ps_syscall_test.zig");
+}

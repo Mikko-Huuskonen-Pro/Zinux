@@ -349,7 +349,7 @@ zig build run
 
 | Vaihe | Teema | Tavoite |
 |-------|-------|---------|
-| **23** | Prosessilista (`sys_ps`) | Oikeat PID:t prosessitaulukosta + shell `ps` |
+| **23** | Prosessilista (`sys_ps`) | Oikeat PID:t prosessitaulukosta + shell `ps` | ✅ |
 | **24** | Prosessin elinkaari | `sys_exit` + `sys_wait` (spawn → exit → wait) |
 | **25** | Osoiteavaruudet | Erillinen sivutaulu / CR3 per prosessi |
 | **26** | Scheduler + prosessit | Timer-preempt, useita prosesseja vuorotellen |
@@ -358,12 +358,16 @@ zig build run
 
 ### Tunnetut korjattavat (security review, PR #2)
 
-Ennen/moniprosessin laajennuksen yhteydessä korjataan PR #2 -reviewin medium-löydökset:
+PR #2 -branchin security review (vaiheet 20–22) löysi **2 medium-löydöstä**. Korjaukset on sidottu roadmappiin:
 
-| # | Ongelma | Korjaus (suunniteltu) |
-|---|---------|----------------------|
-| S1 | `sys_cap_create` asentaa capin edelleen pid 1:een, slotit haetaan `currentPid`:llä | Vaihe 23: `createAndInstall(..., process.currentPid(), ...)` |
-| S2 | `sys_cap_transfer` voi täyttää uhrin slot-taulukon rajattomilla kopioilla | Vaihe 27 tai erillinen hardening: deduplikointi / siirto (ei pelkkä kopio) |
+| ID | Severity | Sijainti | Ongelma | Korjaus | Vaihe |
+|----|----------|----------|---------|---------|-------|
+| **S1** | Medium | `dispatch.zig:506`, `capability_core.zig` | `sys_cap_create` asentaa capin **pid 1**:een, mutta slotit haetaan **`currentPid`**:llä → väärä namespace / DoS pid ≥ 2 | `createAndInstall(..., process.currentPid(), ...)` | **23.0** ✅ |
+| **S2** | Medium | `capability_core.zig:307`, `dispatch.zig:150` | `sys_cap_transfer` voi täyttää uhrin 32 slotin rajattomilla kopioilla | Deduplikointi tai siirto (ei pelkkä kopio) | **27.0** ⬜ |
+
+**S1 hyökkäyspolku (korjattu vaiheessa 23):** prosessi pid ≥ 2 kutsuu `sys_cap_create` → cap asentui aiemmin pid 1:een → `lookupSlot` etsii current pid:n taulukosta → slot-indeksi ei vastaa oikeaa capia / täyttää boot-prosessin slotit.
+
+**S2 hyökkäyspolku (suunniteltu):** prosessi grant-capilla loopittaa `sys_cap_transfer(victim_pid)` → uhrin `MAX_SLOTS` täyttyy → legitimit asennukset epäonnistuvat.
 
 ---
 
@@ -431,22 +435,22 @@ zig build boot-test
 
 ---
 
-## Vaihe 23 — Prosessilista (`sys_ps`) ⬜
+## Vaihe 23 — Prosessilista (`sys_ps`) ✅
 
 **Tavoite**: `sys_ps` ja shell `ps` näyttävät oikeat prosessit prosessitaulukosta (ei kovakoodattu stub).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 23.0 | Security: `sys_cap_create` → `currentPid` | `dispatch.zig`, `capability_core.zig` | ⬜ Cap create pid OK |
-| 23.1 | `sys_ps` prosessitaulukosta | `dispatch.zig`, `process_core.zig` | ⬜ Ps syscall OK |
-| 23.2 | Shell `ps` päivitetty | `userland/shell/commands/ps.zig` | ⬜ shell ps OK |
-| 23.3 | Boot-testi: useita prosesseja listassa | `ps_syscall.zig`, host-testit | ⬜ Ps lists processes OK |
+| 23.0 | Security: `sys_cap_create` → `currentPid` | `dispatch.zig`, `capability_core.zig` | ✅ Cap create pid OK |
+| 23.1 | `sys_ps` prosessitaulukosta | `dispatch.zig`, `ps_syscall_core.zig` | ✅ Ps syscall OK |
+| 23.2 | Shell `ps` päivitetty | `userland/shell/commands/ps.zig` | ✅ shell ps OK (sys_ps) |
+| 23.3 | Boot-testi: useita prosesseja listassa | `ps_syscall.zig`, host-testit | ✅ Ps lists processes OK |
 
 **Testi**:
 ```bash
 zig build boot-test
 # Odotettu serial: Cap create pid OK, Ps syscall OK, Ps lists processes OK
-# Shell boot-testissä: ps tulostaa vähintään boot-pid (1) ja testiprosessit
+# Shell boot-testissä: ps tulostaa oikeat PID:t (vähintään 1 boot, 2 proc)
 ```
 
 ---

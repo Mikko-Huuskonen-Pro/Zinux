@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **23** ⬜
+## Nykyinen vaihe: **24** ⬜
 
 **Branch**: `cursor/process-table-phase20-4d97`  
 **PR**: [#2](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/2)  
@@ -38,11 +38,12 @@
 | 20 Prosessitaulukko | ✅ |
 | 21 Prosessin luonti (sys_spawn) | ✅ |
 | 22 Cross-process IPC | ✅ |
+| 23 Prosessilista (sys_ps) | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 23)
+### Tämän kierroksen prioriteetti (Vaihe 24)
 
-**Prosessilista + cap_create-pid-korjaus** — `sys_ps` prosessitaulukosta, security review S1.  
-Katso `docs/ROADMAP.md` vaihe 23 (23.0 → 23.3).
+**Prosessin elinkaari** — `sys_exit` + `sys_wait` (spawn → exit → wait).  
+Katso `docs/ROADMAP.md` vaihe 24.
 
 ---
 

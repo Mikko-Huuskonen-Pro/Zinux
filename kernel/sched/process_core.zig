@@ -197,3 +197,23 @@ pub fn processCount() usize {
     // Palauta rekisteröityjen prosessien määrä.
     return used_count;
 }
+
+// Palauta rekisteröidyn prosessin pid taulukko-indeksillä (0..processCount-1).
+pub fn pidAt(index: usize) ?u64 {
+    // Vaadi alustus.
+    if (!initialized) return null;
+    // Indeksi taulukon ulkopuolella.
+    if (index >= used_count) return null;
+    // Paikka ei käytössä.
+    if (!processes[index].used) return null;
+    // Palauta prosessitunniste.
+    return processes[index].pid;
+}
+
+// Onko prosessilla ladattu ELF (spawnattu user-prosessi).
+pub fn isLoaded(pid: u64) bool {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return false;
+    // Palauta loaded-lippu.
+    return processes[idx].loaded;
+}

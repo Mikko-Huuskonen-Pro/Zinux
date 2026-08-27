@@ -719,6 +719,12 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("cap_core", cap_core_mod);
     host_test_mod.addImport("ipc_block_core", ipc_block_core_mod);
     host_test_mod.addImport("process_core", process_core_mod);
+    const ps_syscall_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/syscall/ps_syscall_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    host_test_mod.addImport("ps_syscall_core", ps_syscall_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
