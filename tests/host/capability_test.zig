@@ -42,3 +42,21 @@ test "create install delegate revoke" {
     // Slotit eivät enää anna oikeuksia.
     try std.testing.expect(!cap.slotHasRights(slot, .{ .recv = true }));
 }
+
+test "revoke slot by index" {
+    // Puhdas tila.
+    cap.initCore();
+    // Luo portti send+recv-oikeuksilla.
+    const slot = cap.createAndInstall(.port, 1, 9, .{
+        .send = true,
+        .recv = true,
+    }) orelse return error.TestFailed;
+    // Slotti antaa send-oikeuden ennen peruutusta.
+    try std.testing.expect(cap.slotHasRights(slot, .{ .send = true }));
+    // Peruuta slotti indeksillä.
+    try std.testing.expect(cap.revokeSlot(slot));
+    // Slotti ei enää anna oikeuksia.
+    try std.testing.expect(!cap.slotHasRights(slot, .{ .send = true }));
+    // Toistuva peruutus epäonnistuu.
+    try std.testing.expect(!cap.revokeSlot(slot));
+}

@@ -209,6 +209,23 @@ zig build run
 
 ---
 
+## Vaihe 12 — Capability peruutus käyttäjätilaan ✅
+
+**Tavoite**: Ring 3 voi peruuttaa capability-slottinsa `sys_cap_revoke`-syscallilla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 12.1 | sys_cap_revoke | `kernel/syscall/dispatch.zig`, `capability_core.zig` | ✅ invoke + Cap revoke syscall OK |
+| 12.2 | Userland cap.revoke | `userland/lib/cap.zig`, `userland/cap_revoke_test/` | ✅ ring 3 revoke + Userland cap revoke test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap revoke syscall OK, userland cap revoke OK, Userland cap revoke test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -224,6 +241,7 @@ graph TD
     V8 --> V9[Vaihe 9: Cap delegate]
     V9 --> V10[Vaihe 10: Cap create]
     V10 --> V11[Vaihe 11: Blocking IPC]
+    V11 --> V12[Vaihe 12: Cap revoke]
 ```
 
 ---

@@ -238,6 +238,32 @@ pub fn build(b: *std.Build) void {
     copy_cap_create_test_elf.addFileArg(embedded_cap_create_test_path);
     copy_cap_create_test_elf.step.dependOn(&cap_create_test_exe.step);
 
+    // --- Cap revoke userland test ELF (Vaihe 12.2) — upotetaan kerneliin ---
+    const cap_revoke_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/cap_revoke_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    cap_revoke_test_mod.red_zone = false;
+    cap_revoke_test_mod.stack_protector = false;
+    cap_revoke_test_mod.single_threaded = true;
+    cap_revoke_test_mod.code_model = .large;
+    cap_revoke_test_mod.addImport("cap", cap_lib_mod);
+    cap_revoke_test_mod.addImport("ipc", ipc_lib_mod);
+    const cap_revoke_test_exe = b.addExecutable(.{
+        .name = "zinux-cap-revoke-test",
+        .root_module = cap_revoke_test_mod,
+    });
+    cap_revoke_test_exe.setLinkerScript(b.path("userland/cap_revoke_test/user.ld"));
+    cap_revoke_test_exe.root_module.addAssemblyFile(b.path("userland/cap_revoke_test/start.S"));
+    b.installArtifact(cap_revoke_test_exe);
+
+    const embedded_cap_revoke_test_path = b.path("kernel/loader/cap_revoke_test_prog.bin");
+    const copy_cap_revoke_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_cap_revoke_test_elf.addFileArg(cap_revoke_test_exe.getEmittedBin());
+    copy_cap_revoke_test_elf.addFileArg(embedded_cap_revoke_test_path);
+    copy_cap_revoke_test_elf.step.dependOn(&cap_revoke_test_exe.step);
+
     // --- IPC block userland test ELF (Vaihe 11.2) — upotetaan kerneliin ---
     const ipc_block_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/ipc_block_test/main.zig"),
@@ -281,6 +307,7 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_ipc_test_elf.step);
     kernel.step.dependOn(&copy_cap_test_elf.step);
     kernel.step.dependOn(&copy_cap_create_test_elf.step);
+    kernel.step.dependOn(&copy_cap_revoke_test_elf.step);
     kernel.step.dependOn(&copy_ipc_block_test_elf.step);
     b.installArtifact(kernel);
 

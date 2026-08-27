@@ -28,6 +28,8 @@ pub const CAP_TYPE_PORT = core.CAP_TYPE_PORT;
 
 // Syscall-numero: sys_cap_create(type, rights_mask).
 pub const SYS_cap_create: u64 = 7;
+// Syscall-numero: sys_cap_revoke(slot).
+pub const SYS_cap_revoke: u64 = 8;
 
 // Capability-kirjaston virheet.
 pub const CapError = error{
@@ -67,6 +69,16 @@ fn sysCapCreate(typ: u32, rights_mask: u32) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_cap_revoke — palauttaa raa'an i64-paluuarvon.
+fn sysCapRevoke(slot: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_cap_revoke),
+          [slot] "{rdi}" (@as(u64, slot)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Alin tason sys_cap_delegate — palauttaa raa'an i64-paluuarvon.
 fn sysCapDelegate(slot: u32, rights_mask: u32) i64 {
     // SYSCALL: RAX=num, RDI=slot, RSI=rights_mask.
@@ -100,4 +112,12 @@ pub fn createPort(rights_mask: u32) CapError!u32 {
     if (core.isError(ret)) return mapSyscallError(ret);
     // Palauta uuden slotin indeksi.
     return @intCast(ret);
+}
+
+// Peruuta capability-slotti — mitätöi objekti ja kaikki viitteet.
+pub fn revoke(slot: u32) CapError!void {
+    // Kutsu kerneliä — peruuta slotin taustalla oleva objekti.
+    const ret = sysCapRevoke(slot);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
 }

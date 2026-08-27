@@ -346,6 +346,16 @@ fn sysCapDelegate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(derived);
 }
 
+// sys_cap_revoke — peruuta capability-slotti ja taustalla oleva objekti.
+fn sysCapRevoke(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti peruutettavaksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Yritä peruuttaa slotin objekti.
+    if (!cap.revokeSlot(slot_idx)) return abi.EBADF;
+    // Onnistui — palauta nolla.
+    return 0;
+}
+
 // sys_cap_create — luo uusi capability (portti) annetuilla oikeuksilla.
 fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Capability-tyyppi (CAP_TYPE_PORT = 1).
@@ -403,6 +413,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
     // Rekisteröi sys_cap_create (uusi capability-portti).
     table[@intCast(abi.SYS_cap_create)] = sysCapCreate;
+    // Rekisteröi sys_cap_revoke (capability-slotti peruutus).
+    table[@intCast(abi.SYS_cap_revoke)] = sysCapRevoke;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Rekisteröi sys_meminfo (shell meminfo-komento).

@@ -252,6 +252,16 @@ pub fn delegateSlot(slot_idx: u32, new_rights: Rights) ?u32 {
     return derived;
 }
 
+// Peruuta capability-slotti — invalidoi taustalla oleva objekti ja kaikki viitteet.
+pub fn revokeSlot(slot_idx: u32) bool {
+    // Hae slotti indeksillä.
+    const slot = lookupSlot(slot_idx) orelse return false;
+    // Slotti ilman objektiviitettä on jo mitätöity.
+    if (slot.object_id == 0) return false;
+    // Peruuta objekti — nollaa kaikki siihen viittaavat slotit.
+    return revokeObject(slot.object_id);
+}
+
 // Peruuta objekti — invalidoi kaikki siihen viittaavat slotit.
 pub fn revokeObject(object_id: u32) bool {
     // Hae objekti.
