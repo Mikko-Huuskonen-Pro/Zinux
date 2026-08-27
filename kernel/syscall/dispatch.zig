@@ -16,6 +16,8 @@ const usermode = @import("../arch/x86_64/usermode.zig");
 const pmm = @import("../mm/pmm.zig");
 // Tuo kernel heap — kokonaiskoko meminfo-syscallille.
 const heap = @import("../mm/heap.zig");
+// Tuo user_access — stac/clac SMAP-yhteensopivuuteen.
+const user_access = @import("../arch/x86_64/user_access.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -56,12 +58,16 @@ fn sysWrite(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     if (len == 0) return 0;
     // Osoitin puskuriin tavuina.
     const ptr: [*]const u8 = @ptrFromInt(buf);
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
     // Kirjoita jokainen tavu UART:iin.
     var i: u64 = 0;
     while (i < len) : (i += 1) {
         // Tulosta yksi merkki serialiin.
         uart.putc(ptr[i]);
     }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     // Palauta kirjoitettujen tavujen määrä.
     return @intCast(len);
 }
@@ -80,6 +86,8 @@ fn sysRead(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     if (len == 0) return 0;
     // Osoitin puskuriin tavuina.
     const ptr: [*]u8 = @ptrFromInt(buf);
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
     // Lue tavuja kunnes puskuri täynnä.
     var i: u64 = 0;
     while (i < len) : (i += 1) {
@@ -87,10 +95,14 @@ fn sysRead(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
         ptr[i] = uart.readc();
         // Lopeta rivin lopussa (shell-komento valmis).
         if (ptr[i] == '\n') {
+            // Palauta SMAP-suojaus ennen paluuta.
+            user_access.clac();
             // Palauta luettujen tavujen määrä mukaan lukien newline.
             return @intCast(i + 1);
         }
     }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     // Puskuri täynnä ilman newlinea.
     return @intCast(len);
 }
@@ -179,12 +191,16 @@ fn copyToUser(user: [*]u8, user_len: u64, kernel_buf: []const u8, kernel_len: us
     if (user_len == 0 or kernel_len == 0) return 0;
     // Kopioitavien tavujen enimmäismäärä.
     const copy_len = @min(kernel_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
     // Kopioi tavu kerrallaan ring 3 -puskuriin.
     var i: usize = 0;
     while (i < copy_len) : (i += 1) {
         // Kirjoita yksi tavu user-muistiin.
         user[i] = kernel_buf[i];
     }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     // Palauta kopioitujen tavujen määrä.
     return @intCast(copy_len);
 }

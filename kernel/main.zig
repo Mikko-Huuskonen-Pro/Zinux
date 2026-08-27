@@ -46,6 +46,10 @@ const capability = @import("ipc/capability.zig");
 const port = @import("ipc/port.zig");
 // Tuo ring 3 usermode (Vaihe 4.5).
 const usermode = @import("arch/x86_64/usermode.zig");
+// Tuo SMEP/SMAP kovennus (Vaihe 7.1).
+const hardening = @import("arch/x86_64/hardening.zig");
+// Tuo pinon canaryt (Vaihe 7.2).
+const stack_canary = @import("arch/x86_64/stack_canary.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -124,6 +128,14 @@ fn kmain() noreturn {
     capability.runBootTest();
     // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
     port.runBootTest();
+    // Ota SMEP/SMAP käyttöön ennen ring 3 -testejä (Vaihe 7.1).
+    hardening.init();
+    // Vahvista SMEP/SMAP aktivointi.
+    hardening.runBootTest();
+    // Maalaa canaryt kernel-pinoihin (early, syscall, TSS) — Vaihe 7.2.
+    stack_canary.init();
+    // Vahvista canaryt ennen ring 3 -testejä.
+    stack_canary.runBootTest();
     // Vaihe 4.5 — ring 3 sys_write("hello") SYSCALL:lla.
     usermode.runBootTest();
     // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".

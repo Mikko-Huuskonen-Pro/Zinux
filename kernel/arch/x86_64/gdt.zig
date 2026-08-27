@@ -83,6 +83,12 @@ var tss: Tss = .{};
 // Ring 0 pinon tila — poikkeus ring 3:sta hyppää tähän pinoon.
 var tss_stack: [4096]u8 align(16) linksection(".bss") = undefined;
 
+// Palauta TSS ring-0 pinon tavu-slice canary-seurantaa varten.
+pub fn tssStackSlice() []u8 {
+    // Viittaus koko pinomuistialueeseen.
+    return &tss_stack;
+}
+
 // TSS GDT-valitsin (indeksi 5 → 0x28) — korvaa Liminen TR=0x38.
 pub const TSS_SEL: u16 = 0x28;
 

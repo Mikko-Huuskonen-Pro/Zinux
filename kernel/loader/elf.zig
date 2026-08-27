@@ -14,6 +14,8 @@ const paging = @import("../arch/x86_64/paging.zig");
 const usermode = @import("../arch/x86_64/usermode.zig");
 // Tuo lokitus boot-viesteihin.
 const log = @import("../lib/log.zig");
+// Tuo user_access — stac/clac SMAP-yhteensopivuuteen user-sivuille.
+const user_access = @import("../arch/x86_64/user_access.zig");
 // Tuo heap-alue — pinon virtuaaliosoitteet.
 const heap = @import("../mm/heap.zig");
 
@@ -88,6 +90,8 @@ fn copySegmentData(seg: core.LoadSegment, elf_data: []const u8) bool {
     const dst: [*]u8 = @ptrFromInt(seg.vaddr);
     // Lähde ELF-blobissa.
     const src = elf_data[seg.file_offset..][0..seg.file_size];
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
     // Kopioi alustettu osa (file_size).
     @memcpy(dst[0..seg.file_size], src);
     // Nollaa BSS (mem_size - file_size) jos on.
@@ -97,6 +101,8 @@ fn copySegmentData(seg: core.LoadSegment, elf_data: []const u8) bool {
         // Nollaa laajennusalue.
         @memset(dst[seg.file_size..][0..bss_len], 0);
     }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     return true;
 }
 

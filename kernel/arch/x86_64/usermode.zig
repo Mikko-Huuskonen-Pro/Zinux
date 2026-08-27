@@ -14,6 +14,8 @@ const paging = @import("paging.zig");
 const heap = @import("../../mm/heap.zig");
 // Tuo lokitus boot-viesteihin.
 const log = @import("../../lib/log.zig");
+// Tuo user_access — stac/clac SMAP-yhteensopivuuteen user-sivuille.
+const user_access = @import("user_access.zig");
 
 // Sivujen offset heapin alusta — yli INITIAL_PAGES (4) + marginaali.
 const USER_PAGE_SLOT: u64 = 16;
@@ -68,10 +70,12 @@ fn setupUserPages() bool {
     // Varmista U-bitti koko polussa; koodisivu myös suoritettava (NX=0).
     if (!paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), USER_CODE_ADDR, true)) return false;
     if (!paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), USER_STACK_ADDR, false)) return false;
-    // Kopioi userEntry + userHello user-sivulle.
+    // Kopioi userEntry + userHello user-sivulle (SMAP: stac ennen user-kirjoitusta).
     const dst: [*]u8 = @ptrFromInt(USER_CODE_ADDR);
     const src: [*]const u8 = @ptrFromInt(code_start);
+    user_access.stac();
     @memcpy(dst[0..code_len], src[0..code_len]);
+    user_access.clac();
     return true;
 }
 

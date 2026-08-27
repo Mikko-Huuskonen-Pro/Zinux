@@ -12,6 +12,8 @@ const thread_mod = @import("thread.zig");
 const uart = @import("../drivers/char/uart.zig");
 // Tuo lokitus scheduler-alustusviestille.
 const log = @import("../lib/log.zig");
+// Tuo pinon canary — maalaa ja tarkista säiepinot.
+const stack_canary = @import("../arch/x86_64/stack_canary.zig");
 
 // Montako A/B-tulostusta per säie (8 kpl → ABAB × 8 serialissa).
 const PRINT_LIMIT: u32 = 8;
@@ -33,6 +35,8 @@ var threads: [2]thread_mod.Thread = undefined;
 fn yield() void {
     // Ei yield ennen start()-alustusta.
     if (!scheduler_ready) return;
+    // Tarkista canaryt ennen kontekstinvaihtoa — ylivuoto havaitaan heti.
+    if (!stack_canary.verifyTracked()) stack_canary.onViolation();
     // Edellinen säie jolta yield kutsuttiin.
     const prev = current;
     // Molemmat säikeet valmiit → log + palaa kmain-pinolle.
@@ -85,6 +89,9 @@ pub fn start() noreturn {
     // Alusta säie-pinot entry-funktioilla.
     thread_mod.init(&threads[0], 0, threadAEntry);
     thread_mod.init(&threads[1], 1, threadBEntry);
+    // Maalaa canaryt säiepinoihin ennen ensimmäistä context switchiä.
+    stack_canary.trackStack(&threads[0].stack);
+    stack_canary.trackStack(&threads[1].stack);
     // Salli yield-kutsut säieistä.
     scheduler_ready = true;
     // Ilmoita schedulerin käynnistymisestä serialiin.

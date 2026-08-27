@@ -50,3 +50,13 @@ test {
 test {
     _ = @import("driver_registry_test.zig");
 }
+
+// Tuo SMEP/SMAP-ydin-yksikkötestit.
+test {
+    _ = @import("hardening_test.zig");
+}
+
+// Tuo pinon canary-ydin-yksikkötestit.
+test {
+    _ = @import("stack_canary_test.zig");
+}

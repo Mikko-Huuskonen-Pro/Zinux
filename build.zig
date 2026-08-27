@@ -197,6 +197,16 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const hardening_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/arch/x86_64/hardening_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const stack_canary_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/arch/x86_64/stack_canary_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -209,6 +219,8 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("vfs_core", vfs_core_mod);
     host_test_mod.addImport("tmpfs_core", tmpfs_core_mod);
     host_test_mod.addImport("driver_registry_core", driver_registry_core_mod);
+    host_test_mod.addImport("hardening_core", hardening_core_mod);
+    host_test_mod.addImport("stack_canary_core", stack_canary_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
@@ -307,6 +319,7 @@ pub fn build(b: *std.Build) void {
     const qemu = b.addSystemCommand(&.{
         "qemu-system-x86_64",
         "-M", "q35",
+        "-cpu", "qemu64,+smep,+smap",
         "-m", "512M",
         "-display", "none",
         "-monitor", "none",
