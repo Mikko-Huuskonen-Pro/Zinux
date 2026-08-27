@@ -45,8 +45,10 @@ extern fn userEntryEnd() void;
 
 // Kernel pinon osoite ennen iretq:ä — export assemblylle.
 pub export var usermode_saved_kernel_rsp: u64 = 0;
-// Palautettava pid ennen ring 3 -hyppyä (sys_test_return palauttaa).
+// Palautettava pid ennen ring 3 -hyppyä (sys_test_return / sys_exit palauttaa).
 var usermode_saved_pid: u64 = process.BOOT_PID;
+// Ring 3:ssa suoritettava prosessi — varmuus currentPid:lle syscallien aikana (Vaihe 24).
+pub var usermode_ring3_pid: u64 = process.BOOT_PID;
 
 // Siirry ring 3:een — usermode_jump.S iretq (palaa ret:llä sys_test_return:in kautta).
 extern fn usermodeEnterIret(
@@ -81,7 +83,13 @@ fn setupUserPages() bool {
     return true;
 }
 
-// Palaa kerneliin sys_test_return-käsittelijästä.
+// Hae ring 3 -prosessin tunniste (asetettu enterUserAs:ssa).
+pub fn activeRing3Pid() u64 {
+    // Palauta viimeisin user-kontekstin pid.
+    return usermode_ring3_pid;
+}
+
+// Palaa kerneliin sys_test_return/sys_exit-käsittelijästä.
 pub fn returnToKernelTestContinue() noreturn {
     // Palauta edellinen prosessikonteksti ennen kernel-jatkoa.
     _ = process.setCurrentPid(usermode_saved_pid);
@@ -99,6 +107,8 @@ pub fn enterUser(entry: u64, user_stack_top: u64) void {
 pub fn enterUserAs(entry: u64, user_stack_top: u64, pid: u64) void {
     // Tallenna nykyinen pid ennen user-kontekstia.
     usermode_saved_pid = process.currentPid();
+    // Tallenna ring 3 -prosessi erikseen (Vaihe 24 sys_exit).
+    usermode_ring3_pid = pid;
     // Aseta current pid userland-syscallien ajaksi.
     _ = process.setCurrentPid(pid);
     // User segmenttivalitsimet RPL 3.

@@ -61,6 +61,8 @@ pub fn isRegistered(num: u64) bool {
         20 => true,
         // sys_cap_transfer.
         21 => true,
+        // sys_wait.
+        22 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
@@ -108,6 +110,8 @@ pub fn isDangerous(num: u64) bool {
         20 => true,
         // sys_cap_transfer — mutatoi capability-tilaa fuzzissa.
         21 => true,
+        // sys_wait — riippuu prosessitaulukon tilasta.
+        22 => true,
         // Muut numerot turvallisia tai ENOSYS.
         else => false,
     };

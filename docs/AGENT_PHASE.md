@@ -5,10 +5,10 @@
 
 ---
 
-## Nykyinen vaihe: **24** ⬜
+## Nykyinen vaihe: **25** ⬜
 
-**Branch**: `cursor/process-table-phase20-4d97`  
-**PR**: [#2](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/2)  
+**Branch**: `cursor/process-exit-wait-4d97`  
+**PR**: (luodaan pushin jälkeen)  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
@@ -39,11 +39,12 @@
 | 21 Prosessin luonti (sys_spawn) | ✅ |
 | 22 Cross-process IPC | ✅ |
 | 23 Prosessilista (sys_ps) | ✅ |
+| 24 Prosessin elinkaari (exit/wait) | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 24)
+### Tämän kierroksen prioriteetti (Vaihe 25)
 
-**Prosessin elinkaari** — `sys_exit` + `sys_wait` (spawn → exit → wait).  
-Katso `docs/ROADMAP.md` vaihe 24.
+**Osoiteavaruudet per prosessi** — CR3 + prosessikohtainen sivutaulu.  
+Katso `docs/ROADMAP.md` vaihe 25.
 
 ---
 

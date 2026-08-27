@@ -8,6 +8,16 @@
 pub const BOOT_PID: u64 = 1;
 // Maksimi prosessien määrä kernelin taulukossa.
 pub const MAX_PROCESSES: usize = 16;
+// Ei vanhempaa — boot-prosessin parent_pid (Vaihe 24 wait).
+pub const NO_PARENT: u64 = 0;
+
+// Prosessin elinkaaren tila (Vaihe 24 exit/wait).
+pub const ProcessState = enum {
+    // Prosessi elossa — ei vielä sys_exit.
+    running,
+    // Prosessi lopettanut — odottaa sys_wait (zombie).
+    zombie,
+};
 
 // Yksittäinen prosessi prosessitaulukossa.
 pub const Process = struct {
@@ -23,6 +33,12 @@ pub const Process = struct {
     stack_top: u64,
     // Heap-slot josta pino kartoitettiin.
     stack_slot: u64,
+    // Elinkaaren tila — running tai zombie (Vaihe 24).
+    state: ProcessState,
+    // Vanhemman prosessitunniste — spawn asettaa currentPid (Vaihe 24).
+    parent_pid: u64,
+    // sys_exit status-koodi zombie-tilassa (Vaihe 24).
+    exit_code: u32,
 };
 
 // Ladatun prosessin suoritustiedot — runProcess/spawn.
@@ -60,6 +76,12 @@ pub fn initCore() void {
         p.stack_top = 0;
         // Nollaa pinon slot.
         p.stack_slot = 0;
+        // Prosessi elossa.
+        p.state = .running;
+        // Ei vanhempaa oletuksena.
+        p.parent_pid = NO_PARENT;
+        // Ei exit-koodia ennen sys_exit.
+        p.exit_code = 0;
     }
     // Ei rekisteröityjä prosesseja.
     used_count = 0;
@@ -99,6 +121,9 @@ pub fn allocProcess(pid: u64) bool {
             .entry = 0,
             .stack_top = 0,
             .stack_slot = 0,
+            .state = .running,
+            .parent_pid = NO_PARENT,
+            .exit_code = 0,
         };
         // Yksi prosessi rekisteröity.
         used_count = 1;
@@ -119,6 +144,9 @@ pub fn allocProcess(pid: u64) bool {
         .entry = 0,
         .stack_top = 0,
         .stack_slot = 0,
+        .state = .running,
+        .parent_pid = NO_PARENT,
+        .exit_code = 0,
     };
     // Kasvata lukumäärää.
     used_count += 1;
@@ -216,4 +244,79 @@ pub fn isLoaded(pid: u64) bool {
     const idx = findIndex(pid) orelse return false;
     // Palauta loaded-lippu.
     return processes[idx].loaded;
+}
+
+// Onko prosessi rekisteröity taulukossa.
+pub fn exists(pid: u64) bool {
+    // findIndex löytyy → prosessi on olemassa.
+    return findIndex(pid) != null;
+}
+
+// Hae prosessin elinkaaren tila.
+pub fn getState(pid: u64) ?ProcessState {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return null;
+    // Palauta tila.
+    return processes[idx].state;
+}
+
+// Onko prosessi zombie-tilassa.
+pub fn isZombie(pid: u64) bool {
+    // Hae tila — false jos prosessia ei ole.
+    return getState(pid) == .zombie;
+}
+
+// Hae vanhemman prosessitunniste.
+pub fn parentPid(pid: u64) ?u64 {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return null;
+    // Palauta parent_pid-kenttä.
+    return processes[idx].parent_pid;
+}
+
+// Aseta vanhemman prosessitunniste (spawn asettaa currentPid).
+pub fn setParentPid(pid: u64, parent: u64) bool {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return false;
+    // Tallenna vanhempi.
+    processes[idx].parent_pid = parent;
+    // Onnistui.
+    return true;
+}
+
+// Hae zombie-prosessin exit-koodi.
+pub fn exitCode(pid: u64) ?u32 {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return null;
+    // Vain zombie palauttaa exit-koodin.
+    if (processes[idx].state != .zombie) return null;
+    // Palauta sys_exit status.
+    return processes[idx].exit_code;
+}
+
+// Merkitse prosessi zombieksi sys_exit:llä — palauttaa false jos jo zombie tai puuttuu.
+pub fn markZombie(pid: u64, code: u32) bool {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return false;
+    // Ei tuplazombiea.
+    if (processes[idx].state == .zombie) return false;
+    // Tallenna exit-koodi.
+    processes[idx].exit_code = code;
+    // Merkitse zombie — odottaa sys_wait.
+    processes[idx].state = .zombie;
+    // Onnistui.
+    return true;
+}
+
+// Poista zombie prosessitaulukosta wait:in jälkeen — vapauttaa paikan (stub: pid säilyy).
+pub fn reapZombie(pid: u64) bool {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return false;
+    // Vain zombie voidaan reapata.
+    if (processes[idx].state != .zombie) return false;
+    // Merkitse ei ladattu — prosessi poistettu elinkaaresta.
+    processes[idx].loaded = false;
+    // Säilytä zombie-tila ja exit_code wait-vastauksen jälkeen (ei poisteta taulukosta vielä).
+    // Tuleva scheduler voi vapauttaa taulukkopaikan kokonaan.
+    return true;
 }

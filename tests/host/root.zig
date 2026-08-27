@@ -110,3 +110,8 @@ test {
 test {
     _ = @import("ps_syscall_test.zig");
 }
+
+// Tuo wait-syscall-ydin-yksikkötestit (Vaihe 24).
+test {
+    _ = @import("wait_syscall_test.zig");
+}
