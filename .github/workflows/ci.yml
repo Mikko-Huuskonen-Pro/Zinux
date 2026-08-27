@@ -1,0 +1,35 @@
+# CI — Zinux kernel build & test pipeline (Zig 0.16.0).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Install ISO/QEMU dependencies
+        run: sudo apt-get update && sudo apt-get install -y xorriso qemu-system-x86
+      - run: zig build test
+      - run: zig build
+      - run: zig build iso
+      - name: Smoke boot in QEMU
+        run: |
+          set -o pipefail
+          zig build run 2>&1 | tee boot-smoke.log
+          grep -q "Zinux boot OK" boot-smoke.log
+          grep -q "Smoke boot OK" boot-smoke.log
+      - name: Full boot integration tests
+        run: |
+          set -o pipefail
+          timeout 180s zig build boot-test 2>&1 | tee boot-full.log
+          grep -q "All boot tests OK" boot-full.log
+          grep -q "Full boot OK" boot-full.log

@@ -1,0 +1,26 @@
+# Zig build artefaktit — ei versionhallintaan.
+.zig-cache/
+zig-cache/
+zig-out/
+
+# Generoitu loader-testi ELF (build.zig kopioi ennen kernel-käännöstä).
+kernel/loader/test_prog.bin
+kernel/loader/init_prog.bin
+kernel/loader/shell_prog.bin
+kernel/loader/ipc_test_prog.bin
+kernel/loader/cap_test_prog.bin
+kernel/loader/cap_create_test_prog.bin
+kernel/loader/cap_revoke_test_prog.bin
+kernel/loader/ipc_try_recv_test_prog.bin
+kernel/loader/ipc_pending_test_prog.bin
+kernel/loader/cap_get_rights_test_prog.bin
+kernel/loader/cap_get_type_test_prog.bin
+kernel/loader/ipc_flush_test_prog.bin
+kernel/loader/cap_get_resource_test_prog.bin
+kernel/loader/ipc_block_test_prog.bin
+kernel/loader/ipc_queue_capacity_test_prog.bin
+
+# Editorit
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,588 @@
+//! Syscall dispatch — numerosta handler-funktioon.
+//!
+//! **Vastuu**: Syscall-taulukko, sys_write/sys_exit stubit.
+//! **Riippuvuudet**: `../../libs/zinuxabi.zig`, UART, log
+//! **Käytetään**: `arch/x86_64/syscall_entry.S`, `main.zig`
+
+// Tuo jaettu ABI — syscall-numerot ja virhekoodit.
+const abi = @import("zinuxabi");
+// Tuo UART sys_write-toteutukseen.
+const uart = @import("../drivers/char/uart.zig");
+// Tuo lokitus boot-testiin.
+const log = @import("../lib/log.zig");
+// Tuo usermode — ring 3 paluu boot-testiin.
+const usermode = @import("../arch/x86_64/usermode.zig");
+// Tuo PMM — vapaiden kehysten laskuri meminfo-syscallille.
+const pmm = @import("../mm/pmm.zig");
+// Tuo kernel heap — kokonaiskoko meminfo-syscallille.
+const heap = @import("../mm/heap.zig");
+// Tuo user_access — stac/clac SMAP-yhteensopivuuteen.
+const user_access = @import("../arch/x86_64/user_access.zig");
+// Tuo IPC-portit — sendViaSlot/recvViaSlot capability-tarkistuksella.
+const port = @import("../ipc/port.zig");
+// Tuo IPC-syscall-ydin — PortError → ABI.
+const ipc_core = @import("ipc_syscall_core.zig");
+// Tuo estävän recv-ydin — odotusloop ennen uudelleenyritystä.
+const ipc_block_core = @import("ipc_block_core.zig");
+// Tuo capability-ydin — delegateSlot lookup.
+const cap = @import("../ipc/capability_core.zig");
+// Tuo capability-syscall-ydin — rights_mask dekoodaus.
+const cap_core = @import("cap_syscall_core.zig");
+
+// Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
+const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
+
+// Syscall-kehyksen kuvaus — assembly tallentaa rekisterit ennen C-kutsua.
+pub const SyscallFrame = extern struct {
+    // Syscall-numero (RAX).
+    num: u64,
+    // Argumentti 1 (RDI).
+    arg1: u64,
+    // Argumentti 2 (RSI).
+    arg2: u64,
+    // Argumentti 3 (RDX).
+    arg3: u64,
+    // Argumentti 4 (R10).
+    arg4: u64,
+    // Argumentti 5 (R8).
+    arg5: u64,
+    // Argumentti 6 (R9).
+    arg6: u64,
+    // Käyttäjän paluosoite (RCX syscall:in jälkeen).
+    user_rip: u64,
+    // Käyttäjän RFLAGS (R11 syscall:in jälkeen).
+    user_rflags: u64,
+};
+
+// sys_write — kirjoita fd:hen (1=stdout UART, 2=stderr UART).
+fn sysWrite(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Tiedoston kuvaus (fd).
+    const fd = a1;
+    // Puskurin osoite (kernel stub: luotetaan osoitteeseen).
+    const buf = a2;
+    // Kirjoitettavien tavujen määrä.
+    const len = a3;
+    // Vain stdout/stderr tuettu toistaiseksi.
+    if (fd != 1 and fd != 2) return abi.EBADF;
+    // Tyhjä kirjoitus on OK.
+    if (len == 0) return 0;
+    // Osoitin puskuriin tavuina.
+    const ptr: [*]const u8 = @ptrFromInt(buf);
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
+    // Kirjoita jokainen tavu UART:iin.
+    var i: u64 = 0;
+    while (i < len) : (i += 1) {
+        // Tulosta yksi merkki serialiin.
+        uart.putc(ptr[i]);
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta kirjoitettujen tavujen määrä.
+    return @intCast(len);
+}
+
+// sys_read — lue fd:stä (0=stdin UART + injektorirengas).
+fn sysRead(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Tiedoston kuvaus (vain stdin tuettu).
+    const fd = a1;
+    // Puskurin osoite ring 3:ssa.
+    const buf = a2;
+    // Luettavien tavujen enimmäismäärä.
+    const len = a3;
+    // Vain stdin (fd 0) tuettu toistaiseksi.
+    if (fd != 0) return abi.EBADF;
+    // Tyhjä luku on OK.
+    if (len == 0) return 0;
+    // Osoitin puskuriin tavuina.
+    const ptr: [*]u8 = @ptrFromInt(buf);
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Lue tavuja kunnes puskuri täynnä.
+    var i: u64 = 0;
+    while (i < len) : (i += 1) {
+        // Blokkaava luku rengasjonosta tai UART:ista.
+        ptr[i] = uart.readc();
+        // Lopeta rivin lopussa (shell-komento valmis).
+        if (ptr[i] == '\n') {
+            // Palauta SMAP-suojaus ennen paluuta.
+            user_access.clac();
+            // Palauta luettujen tavujen määrä mukaan lukien newline.
+            return @intCast(i + 1);
+        }
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Puskuri täynnä ilman newlinea.
+    return @intCast(len);
+}
+
+// sys_exit — lopeta prosessi (stub: pysäytä CPU).
+fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Exit-koodi (ei vielä tallenneta).
+    _ = a1;
+    // Poista keskeytykset ja pysäytä — oikea prosessi-KO myöhemmin.
+    asm volatile ("cli; hlt");
+    // Ei saavuteta.
+    unreachable;
+}
+
+// sys_getpid — palauta prosessitunniste (stub aina 1).
+fn sysGetpid(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Yksittäinen kernel-prosessi stub.
+    return 1;
+}
+
+// sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
+fn sysTestReturn(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Vaihda boot-pinon osoitteeseen ja hyppää runBootTest-jatkoon.
+    usermode.returnToKernelTestContinue();
+}
+
+// Kopioi literaali kernel-puskuriin — palauttaa uusi offset.
+fn appendLiteral(buf: []u8, offset: usize, text: []const u8) usize {
+    // Nykyinen kirjoituskohta.
+    var pos = offset;
+    // Kopioi jokainen merkki jos mahtuu.
+    for (text) |c| {
+        // Puskuri täynnä — lopeta.
+        if (pos >= buf.len) break;
+        // Tallenna merkki.
+        buf[pos] = c;
+        // Siirry eteenpäin.
+        pos += 1;
+    }
+    // Palauta uusi offset.
+    return pos;
+}
+
+// Kirjoita desimaaliluku kernel-puskuriin — palauttaa uusi offset.
+fn appendDecimal(buf: []u8, offset: usize, val: usize) usize {
+    // Nollatapaus erikseen.
+    if (val == 0) {
+        // Yksi nollamerkki jos mahtuu.
+        if (offset < buf.len) buf[offset] = '0';
+        // Palauta offset + 1 tai sama jos täynnä.
+        return if (offset < buf.len) offset + 1 else offset;
+    }
+    // Väliaikainen numeropuskuri käänteisessä järjestyksessä.
+    var digits: [20]u8 = undefined;
+    // Montako numeroa kerätty.
+    var dlen: usize = 0;
+    // Jäännös jakoa varten.
+    var n = val;
+    // Kerää numerot.
+    while (n > 0) : (n /= 10) {
+        // ASCII-numero jäännöksestä.
+        digits[dlen] = @truncate('0' + (n % 10));
+        // Kasvata pituus.
+        dlen += 1;
+    }
+    // Nykyinen offset.
+    var pos = offset;
+    // Tulosta numerot oikeassa järjestyksessä.
+    while (dlen > 0) {
+        // Vähennä ennen tulostusta.
+        dlen -= 1;
+        // Puskuri täynnä — lopeta.
+        if (pos >= buf.len) break;
+        // Kopioi numero.
+        buf[pos] = digits[dlen];
+        // Siirry eteenpäin.
+        pos += 1;
+    }
+    // Palauta uusi offset.
+    return pos;
+}
+
+// Kopioi kernel-puskuri käyttäjän osoitteeseen — palauttaa kopioitujen tavujen määrä.
+fn copyToUser(user: [*]u8, user_len: u64, kernel_buf: []const u8, kernel_len: usize) i64 {
+    // Tyhjä kopiointi on OK.
+    if (user_len == 0 or kernel_len == 0) return 0;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(kernel_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Kopioi tavu kerrallaan ring 3 -puskuriin.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kernel_buf[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta kopioitujen tavujen määrä.
+    return @intCast(copy_len);
+}
+
+// sys_meminfo — täytä käyttäjän puskuri PMM/heap-tiedoilla.
+fn sysMeminfo(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a1);
+    // Puskurin enimmäispituus.
+    const user_len = a2;
+    // Kernel-puskuri muotoilua varten.
+    var kbuf: [96]u8 = undefined;
+    // Kirjoitusoffset kernel-puskurissa.
+    var pos: usize = 0;
+    // PMM total -rivi.
+    pos = appendLiteral(&kbuf, pos, "PMM total: ");
+    pos = appendDecimal(&kbuf, pos, pmm.totalFrames());
+    pos = appendLiteral(&kbuf, pos, " frames\nPMM free: ");
+    pos = appendDecimal(&kbuf, pos, pmm.availableFrames());
+    pos = appendLiteral(&kbuf, pos, " frames\nHeap size: ");
+    pos = appendDecimal(&kbuf, pos, heap.totalSize());
+    pos = appendLiteral(&kbuf, pos, " bytes\n");
+    // Kopioi muotoiltu teksti käyttäjän puskuriin.
+    return copyToUser(user, user_len, kbuf[0..pos], pos);
+}
+
+// Kopioi käyttäjän puskuri kernel-puskuriin — palauttaa kopioitujen tavujen määrä.
+fn copyFromUser(kernel_buf: []u8, user: [*]const u8, user_len: u64) i64 {
+    // Tyhjä kopiointi on OK.
+    if (user_len == 0) return 0;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(kernel_buf.len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
+    // Kopioi tavu kerrallaan ring 3 -puskurista.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Lue yksi tavu user-muistista.
+        kernel_buf[i] = user[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta kopioitujen tavujen määrä.
+    return @intCast(copy_len);
+}
+
+// sys_ipc_send — lähetä viesti capability-slotin kautta.
+fn sysIpcSend(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]const u8 = @ptrFromInt(a2);
+    // Lähetettävien tavujen määrä.
+    const len = a3;
+    // Tyhjä viesti on OK ilman user-kopiota.
+    if (len == 0) {
+        // Lähetä nollapituinen viesti porttiin.
+        const sent = port.sendViaSlot(slot_idx, "") catch |err| return ipc_core.mapPortError(err);
+        // Palauta lähetettyjen tavujen määrä.
+        return @intCast(sent);
+    }
+    // Viesti ei saa ylittää portin MAX_MSG_SIZE.
+    if (len > port.MAX_MSG_SIZE) return abi.EINVAL;
+    // Kernel-puskuri user-datalle ennen sendViaSlot-kutsua.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(@as(usize, @intCast(len)), kbuf.len);
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
+    // Kopioi user-puskuri kerneliin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Lue yksi tavu user-muistista.
+        kbuf[i] = user[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Lähetä slotin kautta (capability-tarkistus port.zig:ssä).
+    const sent = port.sendViaSlot(slot_idx, kbuf[0..copy_len]) catch |err| return ipc_core.mapPortError(err);
+    // Palauta lähetettyjen tavujen määrä.
+    return @intCast(sent);
+}
+
+// sys_ipc_try_recv — vastaanota viesti ilman blokkausta (EAGAIN jos jono tyhjä).
+fn sysIpcTryRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a2);
+    // Puskurin enimmäispituus.
+    const user_len = a3;
+    // Tyhjä puskuri — ei kopioitavaa.
+    if (user_len == 0) return 0;
+    // Kernel-puskuri vastaanotolle.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Vastaanota slotin kautta — ei blokkaa tyhjällä jonolla.
+    const recv_len = port.recvViaSlot(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(recv_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Kopioi viesti käyttäjän puskuriin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kbuf[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta viestin alkuperäinen pituus (kuten read()).
+    return @intCast(recv_len);
+}
+
+// sys_ipc_flush — tyhjennä capability-slotin portin viestijono.
+fn sysIpcFlush(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Tyhjennä jono recv-oikeudella varustetusta slotista.
+    const flushed = port.flushViaSlot(slot_idx) catch |err| return ipc_core.mapPortError(err);
+    // Palauta poistettujen viestien määrä.
+    return @intCast(flushed);
+}
+
+// sys_ipc_queue_capacity — palauta capability-slotin portin jonon maksimisyvyys.
+fn sysIpcQueueCapacity(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae jonon kapasiteetti recv-oikeudella varustetusta slotista.
+    const cap_val = port.queueCapacityViaSlot(slot_idx) catch |err| return ipc_core.mapPortError(err);
+    // Palauta maksimijonon syvyys (MAX_QUEUE).
+    return @intCast(cap_val);
+}
+
+// sys_ipc_pending — palauta capability-slotin portin jonossa olevien viestien määrä.
+fn sysIpcPending(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae jonon pituus recv-oikeudella varustetusta slotista.
+    const count = port.pendingViaSlot(slot_idx) catch |err| return ipc_core.mapPortError(err);
+    // Palauta odottavien viestien määrä (0..MAX_QUEUE).
+    return @intCast(count);
+}
+
+// sys_ipc_recv — vastaanota viesti capability-slotin kautta.
+fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a2);
+    // Puskurin enimmäispituus.
+    const user_len = a3;
+    // Tyhjä puskuri — ei kopioitavaa.
+    if (user_len == 0) return 0;
+    // Kernel-puskuri vastaanotolle.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Vastaanota slotin kautta — blokkaa kunnes viesti saapuu.
+    const recv_len = port.recvViaSlotBlocking(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(recv_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Kopioi viesti käyttäjän puskuriin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kbuf[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta viestin alkuperäinen pituus (kuten read()).
+    return @intCast(recv_len);
+}
+
+// sys_cap_delegate — delegoi osa oikeuksista uuteen capability-slottiin.
+fn sysCapDelegate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Lähde capability-slotti.
+    const slot_idx: u32 = @intCast(a1);
+    // Pyydetyt oikeudet bitmaskina.
+    const mask: u32 = @intCast(a2);
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const new_rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const new_rights: cap.Rights = @bitCast(new_rights_raw);
+    // Hae lähdeslotti — virheellinen indeksi.
+    const src = cap.lookupSlot(slot_idx) orelse return abi.EBADF;
+    // Delegointi vaatii grant-bitin lähde-slotissa.
+    if (!src.rights.grant) return abi.EPERM;
+    // Uudet oikeudet ⊆ alkuperäiset oikeudet.
+    if (!cap.rightsSubset(src.rights, new_rights)) return abi.EPERM;
+    // Asenna uusi slotti samalle objektille.
+    const derived = cap.delegateSlot(slot_idx, new_rights) orelse return abi.EINVAL;
+    // Palauta uuden slotin indeksi.
+    return @intCast(derived);
+}
+
+// sys_cap_revoke — peruuta capability-slotti ja taustalla oleva objekti.
+fn sysCapRevoke(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti peruutettavaksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Yritä peruuttaa slotin objekti.
+    if (!cap.revokeSlot(slot_idx)) return abi.EBADF;
+    // Onnistui — palauta nolla.
+    return 0;
+}
+
+// sys_cap_get_rights — palauta capability-slotin oikeusmaski.
+fn sysCapGetRights(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti kyseltäväksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae slotti — virheellinen indeksi tai mitätöity.
+    const slot = cap.lookupSlot(slot_idx) orelse return abi.EBADF;
+    // Slotti ilman objektiviitettä on mitätöity.
+    if (slot.object_id == 0) return abi.EBADF;
+    // Muunna capability_core.Rights → cap_syscall_core.Rights.
+    const rights_raw: cap_core.Rights = @bitCast(slot.rights);
+    // Palauta oikeudet bitmaskina.
+    return @intCast(cap_core.rightsToMask(rights_raw));
+}
+
+// sys_cap_get_type — palauta capability-slotin objektityyppi.
+fn sysCapGetType(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti kyseltäväksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae slotin objektityyppi — null jos mitätöity.
+    const typ = cap.getSlotType(slot_idx) orelse return abi.EBADF;
+    // Palauta tyyppi numerona (CapType enum → u32).
+    return @intCast(@intFromEnum(typ));
+}
+
+// sys_cap_get_resource — palauta capability-slotin resurssitunniste (port_id jne.).
+fn sysCapGetResource(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti kyseltäväksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae slotti — virheellinen indeksi tai mitätöity.
+    const slot = cap.lookupSlot(slot_idx) orelse return abi.EBADF;
+    // Slotti ilman objektiviitettä on mitätöity.
+    if (slot.object_id == 0) return abi.EBADF;
+    // Resurssitunnisteen kysely vaatii read-oikeuden slotissa.
+    if (!cap.slotHasRights(slot_idx, .{ .read = true })) return abi.EPERM;
+    // Hae resurssitunniste — null jos objekti puuttuu.
+    const resource = cap.getSlotResource(slot_idx) orelse return abi.EBADF;
+    // Palauta port_id tai muu resurssitunniste.
+    return @intCast(resource);
+}
+
+// sys_cap_create — luo uusi capability (portti) annetuilla oikeuksilla.
+fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-tyyppi (CAP_TYPE_PORT = 1).
+    const typ: u32 = @intCast(a1);
+    // Oikeudet bitmaskina.
+    const mask: u32 = @intCast(a2);
+    // Tarkista tyyppi tuettu.
+    if (!cap_core.typeValid(typ)) return abi.EINVAL;
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const rights: cap.Rights = @bitCast(rights_raw);
+    // Luo fyysinen IPC-portti.
+    const port_id = port.createPort() orelse return abi.EINVAL;
+    // Asenna capability portille — palauta slot-indeksi.
+    const slot = cap.createAndInstall(.port, 1, port_id, rights) orelse return abi.EINVAL;
+    // Palauta uuden capability-slotin indeksi.
+    return @intCast(slot);
+}
+
+// sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
+fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a1);
+    // Puskurin enimmäispituus.
+    const user_len = a2;
+    // Staattinen prosessilista (kernel-säikeet + user stub).
+    const listing =
+        \\  PID  NAME
+        \\    0  kernel
+        \\    1  shell
+        \\
+    ;
+    // Kopioi lista käyttäjän puskuriin.
+    return copyToUser(user, user_len, listing, listing.len);
+}
+
+// Dispatch-taulukko — indeksi = syscall-numero (max 31).
+const handlers: [32]?SyscallFn = blk: {
+    // Alusta kaikki merkinnät tyhjiksi.
+    var table: [32]?SyscallFn = .{null} ** 32;
+    // Rekisteröi sys_write.
+    table[@intCast(abi.SYS_write)] = sysWrite;
+    // Rekisteröi sys_read.
+    table[@intCast(abi.SYS_read)] = sysRead;
+    // Rekisteröi sys_exit.
+    table[@intCast(abi.SYS_exit)] = sysExit;
+    // Rekisteröi sys_getpid.
+    table[@intCast(abi.SYS_getpid)] = sysGetpid;
+    // Rekisteröi sys_ipc_send (capability-porttiin lähetys).
+    table[@intCast(abi.SYS_ipc_send)] = sysIpcSend;
+    // Rekisteröi sys_ipc_recv (capability-portista vastaanotto).
+    table[@intCast(abi.SYS_ipc_recv)] = sysIpcRecv;
+    // Rekisteröi sys_ipc_try_recv (non-blocking recv, EAGAIN jos tyhjä).
+    table[@intCast(abi.SYS_ipc_try_recv)] = sysIpcTryRecv;
+    // Rekisteröi sys_ipc_pending (jonossa olevien viestien määrä).
+    table[@intCast(abi.SYS_ipc_pending)] = sysIpcPending;
+    // Rekisteröi sys_ipc_queue_capacity (portin jonon maksimisyvyys).
+    table[@intCast(abi.SYS_ipc_queue_capacity)] = sysIpcQueueCapacity;
+    // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
+    table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
+    // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
+    table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
+    // Rekisteröi sys_cap_create (uusi capability-portti).
+    table[@intCast(abi.SYS_cap_create)] = sysCapCreate;
+    // Rekisteröi sys_cap_revoke (capability-slotti peruutus).
+    table[@intCast(abi.SYS_cap_revoke)] = sysCapRevoke;
+    // Rekisteröi sys_cap_get_rights (capability-oikeusmaskin kysely).
+    table[@intCast(abi.SYS_cap_get_rights)] = sysCapGetRights;
+    // Rekisteröi sys_cap_get_type (capability-objektityypin kysely).
+    table[@intCast(abi.SYS_cap_get_type)] = sysCapGetType;
+    // Rekisteröi sys_cap_get_resource (capability-resurssitunnisteen kysely).
+    table[@intCast(abi.SYS_cap_get_resource)] = sysCapGetResource;
+    // Rekisteröi sys_test_return (ring 3 boot-paluu).
+    table[@intCast(abi.SYS_test_return)] = sysTestReturn;
+    // Rekisteröi sys_meminfo (shell meminfo-komento).
+    table[@intCast(abi.SYS_meminfo)] = sysMeminfo;
+    // Rekisteröi sys_ps (shell ps-komento).
+    table[@intCast(abi.SYS_ps)] = sysPs;
+    // Palauta valmis taulukko.
+    break :blk table;
+};
+
+// Pakota linkitys smoke-buildissa — export-funktio ei saa poistua LTO:ssa.
+pub fn linkAnchor() void {
+    // Ota export-funktion osoite — assembly entry (syscall_entry.S) tarvitsee symbolin.
+    const p = @as(*const anyopaque, @ptrCast(@as(*const fn (*SyscallFrame) callconv(.c) i64, &syscallDispatchFromFrame)));
+    // Estä optimointi / dead-strip poistamasta export-symbolia.
+    asm volatile ("" ::: .{ .memory = true });
+    if (@intFromPtr(p) == 0) @trap();
+}
+
+// Suorita yksi syscall kehyksen perusteella (C-puoli entry:stä).
+pub export fn syscallDispatchFromFrame(frame: *SyscallFrame) i64 {
+    // Hae syscall-numero kehyksestä.
+    const num = frame.num;
+    // Numero taulukon ulkopuolella → ENOSYS.
+    if (num >= handlers.len) return abi.ENOSYS;
+    // Hae handler tai null.
+    const handler = handlers[@intCast(num)] orelse return abi.ENOSYS;
+    // Kutsu handler argumenteilla.
+    return handler(frame.arg1, frame.arg2, frame.arg3, frame.arg4, frame.arg5, frame.arg6);
+}
+
+// Suorita syscall suoraan (boot-testi ilman ring 3).
+pub fn invoke(num: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64) i64 {
+    // Numero taulukon ulkopuolella → ENOSYS.
+    if (num >= handlers.len) return abi.ENOSYS;
+    // Hae handler tai null.
+    const handler = handlers[@intCast(num)] orelse return abi.ENOSYS;
+    // Kutsu handler suoraan.
+    return handler(a1, a2, a3, a4, a5, a6);
+}
+
+// Boot-testi — kutsu sys_write suoraan dispatchista.
+pub fn runBootTest() void {
+    // Testiviesti serialiin.
+    const msg = "SY";
+    // Kutsu sys_write(1, msg, 2).
+    const ret = invoke(abi.SYS_write, 1, @intFromPtr(msg), 2, 0, 0, 0);
+    // Varmista että 2 tavua kirjoitettiin.
+    if (ret != 2) {
+        // Virhe boot-testissä.
+        log.err("Syscall write test failed");
+        // Lopeta testi.
+        return;
+    }
+    // Vahvista dispatch toimii.
+    log.info("Syscall dispatch test OK");
+}
