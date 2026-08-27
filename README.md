@@ -153,15 +153,16 @@ Until every requirement is satisfied:
 ```text
 Zinux 1.0    🔴 NOT READY
 
-
+```
 
 When every requirement is satisfied:
 
-
+```text
 
 Zinux 1.0    🟢 READY
 
 ```
+
 The initial requirements are: 
 ``` text
 Zinux 1.0 requires:
