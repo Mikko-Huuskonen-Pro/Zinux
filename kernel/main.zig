@@ -134,6 +134,9 @@ fn kmain() noreturn {
     capability.runBootTest();
     // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
     port.runBootTest();
+    // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
+    const cap_audit = @import("ipc/cap_audit.zig");
+    cap_audit.runBootTest();
     // Ota SMEP/SMAP käyttöön ennen ring 3 -testejä (Vaihe 7.1).
     hardening.init();
     // Vahvista SMEP/SMAP aktivointi.

@@ -30,7 +30,8 @@ Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 1. ~~**7.1** SMEP/SMAP aktivointi~~ ✅
 2. ~~**7.2** Stack canaries kernelissä~~ ✅
 3. ~~**7.3** KASLR (satunnainen kernel-base)~~ ✅
-4. **7.4** Capability-audit logging
+4. ~~**7.4** Capability-audit logging~~ ✅
+5. **7.5** Fuzzing: syscall-rajapinta
 
 ---
 

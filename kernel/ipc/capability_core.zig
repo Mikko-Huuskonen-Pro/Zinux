@@ -4,6 +4,9 @@
 //! **Riippuvuudet**: ei
 //! **Käytetään**: `capability.zig`, host-testit
 
+// Tuo audit-ydin — rengaspuskuri capability-tapahtumille (Vaihe 7.4).
+const audit = @import("cap_audit_core");
+
 // Capability-objektin tyyppi — mitä resurssia handle edustaa.
 pub const CapType = enum(u8) {
     // Tyhjä / virheellinen tyyppi.
@@ -111,6 +114,8 @@ pub fn rightsIntersect(a: Rights, b: Rights) Rights {
 
 // Nollaa objektit ja slotit — kutsutaan bootissa ja testeissä.
 pub fn initCore() void {
+    // Nollaa audit-loki samalla (create/delegate lokitus).
+    audit.initCore();
     // Tyhjennä kaikki objektipaikat.
     for (&objects) |*obj| {
         // Merkitse vapaa.
@@ -161,6 +166,8 @@ pub fn createObject(typ: CapType, owner_pid: u64, resource_id: u64) ?u32 {
         };
         // Kasvata seuraavaa id:tä (tilastoa varten).
         if (id >= next_object_id) next_object_id = id + 1;
+        // Audit: objekti luotu (ei oikeuksia vielä — asennetaan installSlot:ssa).
+        audit.record(.create, owner_pid, id, audit.NO_SLOT, @bitCast(Rights{}), @intFromEnum(typ));
         // Palauta uuden objektin id.
         return id;
     }
@@ -201,6 +208,10 @@ pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
     };
     // Kasvata slottien määrää.
     slot_count += 1;
+    // Hae objekti audit-merkintää varten.
+    const obj = getObject(object_id) orelse return null;
+    // Audit: capability asennettu slottiin.
+    audit.record(.install, obj.owner_pid, object_id, slot_idx, @bitCast(rights), @intFromEnum(obj.typ));
     // Palauta slot-indeksi prosessille.
     return slot_idx;
 }
@@ -232,13 +243,22 @@ pub fn delegateSlot(slot_idx: u32, new_rights: Rights) ?u32 {
     // Uudet oikeudet ⊆ alkuperäiset oikeudet.
     if (!rightsSubset(src.rights, new_rights)) return null;
     // Asenna uusi slotti samalle objektille pienemmillä oikeuksilla.
-    return installSlot(src.object_id, new_rights);
+    const derived = installSlot(src.object_id, new_rights) orelse return null;
+    // Hae objekti audit-merkintää varten.
+    const obj = getObject(src.object_id) orelse return derived;
+    // Audit: oikeuksia delegoitu.
+    audit.record(.delegate, obj.owner_pid, src.object_id, derived, @bitCast(new_rights), @intFromEnum(obj.typ));
+    // Palauta uuden slotin indeksi.
+    return derived;
 }
 
 // Peruuta objekti — invalidoi kaikki siihen viittaavat slotit.
 pub fn revokeObject(object_id: u32) bool {
     // Hae objekti.
     const obj = getObject(object_id) orelse return false;
+    // Tallenna tyyppi ennen nollausta audit-merkintää varten.
+    const typ = obj.typ;
+    const owner = obj.owner_pid;
     // Merkitse objekti vapaaksi.
     obj.used = false;
     // Nollaa tyyppi.
@@ -258,6 +278,8 @@ pub fn revokeObject(object_id: u32) bool {
             slots[i].rights = .{};
         }
     }
+    // Audit: objekti peruutettu.
+    audit.record(.revoke, owner, object_id, audit.NO_SLOT, @bitCast(Rights{}), @intFromEnum(typ));
     // Onnistui.
     return true;
 }

@@ -65,3 +65,8 @@ test {
 test {
     _ = @import("kaslr_test.zig");
 }
+
+// Tuo capability-audit-ydin-yksikkötestit.
+test {
+    _ = @import("cap_audit_test.zig");
+}

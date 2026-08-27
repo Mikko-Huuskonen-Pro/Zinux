@@ -167,11 +167,18 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const cap_audit_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/ipc/cap_audit_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const capability_core_mod = b.createModule(.{
         .root_source_file = b.path("kernel/ipc/capability_core.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    capability_core_mod.addImport("cap_audit_core", cap_audit_core_mod);
+    kernel_mod.addImport("cap_audit_core", cap_audit_core_mod);
     const port_core_mod = b.createModule(.{
         .root_source_file = b.path("kernel/ipc/port_core.zig"),
         .target = b.graph.host,
@@ -227,6 +234,7 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("hardening_core", hardening_core_mod);
     host_test_mod.addImport("stack_canary_core", stack_canary_core_mod);
     host_test_mod.addImport("kaslr_core", kaslr_core_mod);
+    host_test_mod.addImport("cap_audit_core", cap_audit_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
