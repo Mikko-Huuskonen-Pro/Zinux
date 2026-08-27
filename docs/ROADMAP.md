@@ -337,7 +337,7 @@ zig build run
 |-------|-------|---------|
 | **19** | IPC jonon kapasiteetti | `pending` / `flush` / `queueCapacity` introspection trio | ✅ |
 | **20** | Prosessitaulukko | Erilliset capability-slotit per pid | ✅ |
-| **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) |
+| **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) | ✅ |
 | **22** | Cross-process IPC | Viesti prosessista A → prosessiin B |
 
 ---
