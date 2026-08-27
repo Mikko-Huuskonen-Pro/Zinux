@@ -20,6 +20,8 @@ pub const SYS_cap_delegate: u64 = 6;
 pub const SYS_cap_create: u64 = 7;
 // Syscall-numero: sys_cap_revoke(slot) → 0 onnistui tai neg. virhe.
 pub const SYS_cap_revoke: u64 = 8;
+// Syscall-numero: sys_ipc_try_recv(slot, buf, len) → tavut tai EAGAIN jos tyhjä.
+pub const SYS_ipc_try_recv: u64 = 9;
 // Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
 pub const SYS_read: u64 = 11;
 // Syscall-numero: sys_meminfo(buf, len) → kirjoitetut tavut.

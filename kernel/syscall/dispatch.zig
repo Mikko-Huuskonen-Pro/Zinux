@@ -294,6 +294,36 @@ fn sysIpcSend(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(sent);
 }
 
+// sys_ipc_try_recv — vastaanota viesti ilman blokkausta (EAGAIN jos jono tyhjä).
+fn sysIpcTryRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a2);
+    // Puskurin enimmäispituus.
+    const user_len = a3;
+    // Tyhjä puskuri — ei kopioitavaa.
+    if (user_len == 0) return 0;
+    // Kernel-puskuri vastaanotolle.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Vastaanota slotin kautta — ei blokkaa tyhjällä jonolla.
+    const recv_len = port.recvViaSlot(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(recv_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Kopioi viesti käyttäjän puskuriin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kbuf[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta viestin alkuperäinen pituus (kuten read()).
+    return @intCast(recv_len);
+}
+
 // sys_ipc_recv — vastaanota viesti capability-slotin kautta.
 fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     // Capability-slott indeksi.
@@ -409,6 +439,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_send)] = sysIpcSend;
     // Rekisteröi sys_ipc_recv (capability-portista vastaanotto).
     table[@intCast(abi.SYS_ipc_recv)] = sysIpcRecv;
+    // Rekisteröi sys_ipc_try_recv (non-blocking recv, EAGAIN jos tyhjä).
+    table[@intCast(abi.SYS_ipc_try_recv)] = sysIpcTryRecv;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
     table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
     // Rekisteröi sys_cap_create (uusi capability-portti).

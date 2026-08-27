@@ -226,6 +226,23 @@ zig build run
 
 ---
 
+## Vaihe 13 — Non-blocking IPC recv ✅
+
+**Tavoite**: Ring 3 voi kokeilla viestin vastaanottoa ilman blokkausta `sys_ipc_try_recv`-syscallilla (EAGAIN jos jono tyhjä).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 13.1 | sys_ipc_try_recv | `kernel/syscall/dispatch.zig`, `ipc_try_recv_syscall.zig` | ✅ invoke + IPC try recv syscall OK |
+| 13.2 | Userland ipc.tryRecv | `userland/lib/ipc.zig`, `userland/ipc_try_recv_test/` | ✅ ring 3 tryRecv + Userland IPC try recv test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC try recv syscall OK, userland ipc try recv OK, Userland IPC try recv test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -242,6 +259,7 @@ graph TD
     V9 --> V10[Vaihe 10: Cap create]
     V10 --> V11[Vaihe 11: Blocking IPC]
     V11 --> V12[Vaihe 12: Cap revoke]
+    V12 --> V13[Vaihe 13: Try recv]
 ```
 
 ---

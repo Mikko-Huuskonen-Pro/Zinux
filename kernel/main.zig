@@ -224,6 +224,12 @@ fn kmain() noreturn {
     // Vaihe 12.2 — userland cap.revoke (ring 3 revoke + send fail).
     const cap_revoke_userland = @import("cap_revoke_userland.zig");
     cap_revoke_userland.runBootTest();
+    // Vaihe 13.1 — sys_ipc_try_recv syscall (invoke + IPC try recv syscall OK).
+    const ipc_try_recv_syscall = @import("syscall/ipc_try_recv_syscall.zig");
+    ipc_try_recv_syscall.runBootTest();
+    // Vaihe 13.2 — userland ipc.tryRecv (ring 3 non-blocking recv).
+    const ipc_try_recv_userland = @import("ipc_try_recv_userland.zig");
+    ipc_try_recv_userland.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).
