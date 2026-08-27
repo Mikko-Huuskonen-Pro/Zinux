@@ -230,6 +230,12 @@ fn kmain() noreturn {
     // Vaihe 13.2 — userland ipc.tryRecv (ring 3 non-blocking recv).
     const ipc_try_recv_userland = @import("ipc_try_recv_userland.zig");
     ipc_try_recv_userland.runBootTest();
+    // Vaihe 14.1 — sys_ipc_pending syscall (invoke + IPC pending syscall OK).
+    const ipc_pending_syscall = @import("syscall/ipc_pending_syscall.zig");
+    ipc_pending_syscall.runBootTest();
+    // Vaihe 14.2 — userland ipc.pending (ring 3 queue depth query).
+    const ipc_pending_userland = @import("ipc_pending_userland.zig");
+    ipc_pending_userland.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

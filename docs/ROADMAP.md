@@ -243,6 +243,23 @@ zig build run
 
 ---
 
+## Vaihe 14 — IPC jonon syvyyskysely ✅
+
+**Tavoite**: Ring 3 voi kysyä capability-slotin portin jonossa olevien viestien määrän `sys_ipc_pending`-syscallilla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 14.1 | sys_ipc_pending | `kernel/syscall/dispatch.zig`, `port.zig` | ✅ invoke + IPC pending syscall OK |
+| 14.2 | Userland ipc.pending | `userland/lib/ipc.zig`, `userland/ipc_pending_test/` | ✅ ring 3 pending + Userland IPC pending test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC pending syscall OK, userland ipc pending OK, Userland IPC pending test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -260,6 +277,7 @@ graph TD
     V10 --> V11[Vaihe 11: Blocking IPC]
     V11 --> V12[Vaihe 12: Cap revoke]
     V12 --> V13[Vaihe 13: Try recv]
+    V13 --> V14[Vaihe 14: IPC pending]
 ```
 
 ---

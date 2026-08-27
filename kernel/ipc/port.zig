@@ -74,6 +74,24 @@ pub fn recvViaSlot(slot_idx: u32, buf: []u8) PortError!usize {
     return core.recv(port_id, buf);
 }
 
+// Palauta capability-slotin portin jonossa olevien viestien määrä — vaatii recv-oikeuden.
+pub fn pendingViaSlot(slot_idx: u32) PortError!u8 {
+    // Hae slotti capability-taulukosta.
+    const slot = cap.lookupSlot(slot_idx) orelse return error.NotFound;
+    // Tarkista recv-oikeus (vastaanottajan näkymä jonoon).
+    if (!cap.slotHasRights(slot_idx, .{ .recv = true })) return error.NotFound;
+    // Hae capability-objekti.
+    const obj = cap.getObject(slot.object_id) orelse return error.NotFound;
+    // Varmista portti-tyyppi.
+    if (obj.typ != .port) return error.NotFound;
+    // Resurssitunniste = port_id.
+    const port_id: u32 = @intCast(obj.object_id);
+    // Hae jonon pituus port_core:stä.
+    const count = core.pendingCount(port_id) orelse return error.NotFound;
+    // Palauta odottavien viestien määrä.
+    return count;
+}
+
 // Vastaanota capability-slotin kautta — blokkaa kunnes viesti saapuu.
 pub fn recvViaSlotBlocking(slot_idx: u32, buf: []u8) PortError!usize {
     // Yritä recv kunnes onnistuu tai muu virhe.

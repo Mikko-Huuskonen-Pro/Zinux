@@ -13,6 +13,8 @@ pub const SYS_ipc_send: u64 = 4;
 pub const SYS_ipc_recv: u64 = 5;
 // Syscall-numero: sys_ipc_try_recv(slot, buf, len) — ei blokkaa tyhjällä jonolla.
 pub const SYS_ipc_try_recv: u64 = 9;
+// Syscall-numero: sys_ipc_pending(slot) — jonossa olevien viestien määrä.
+pub const SYS_ipc_pending: u64 = 14;
 // Uudelleenexportoi max-viestikoko.
 pub const MAX_MSG_SIZE = core.MAX_MSG_SIZE;
 
@@ -77,6 +79,16 @@ fn sysIpcTryRecv(slot: u32, buf: [*]u8, len: u64) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_ipc_pending — palauttaa jonossa olevien viestien määrän.
+fn sysIpcPending(slot: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_ipc_pending),
+          [slot] "{rdi}" (@as(u64, slot)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Lähetä viesti capability-slotin kautta — palauttaa lähetettyjen tavujen määrä.
 pub fn send(slot: u32, payload: []const u8) IpcError!usize {
     // Tarkista pituus ennen syscallia.
@@ -110,5 +122,15 @@ pub fn tryRecv(slot: u32, buf: []u8) IpcError!usize {
     // Negatiivinen → virhe (EAGAIN → WouldBlock).
     if (core.isError(ret)) return mapSyscallError(ret);
     // Palauta vastaanotettujen tavujen määrä.
+    return @intCast(ret);
+}
+
+// Kysy capability-slotin portin jonossa olevien viestien määrä.
+pub fn pending(slot: u32) IpcError!u8 {
+    // Kutsu kerneliä — vaatii recv-oikeuden slotissa.
+    const ret = sysIpcPending(slot);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
+    // Palauta odottavien viestien määrä.
     return @intCast(ret);
 }

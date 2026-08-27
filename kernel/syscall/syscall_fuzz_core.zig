@@ -45,6 +45,8 @@ pub fn isRegistered(num: u64) bool {
         12 => true,
         // sys_ps.
         13 => true,
+        // sys_ipc_pending.
+        14 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
