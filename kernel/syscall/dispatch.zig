@@ -22,6 +22,10 @@ const user_access = @import("../arch/x86_64/user_access.zig");
 const port = @import("../ipc/port.zig");
 // Tuo IPC-syscall-ydin — PortError → ABI.
 const ipc_core = @import("ipc_syscall_core.zig");
+// Tuo capability-ydin — delegateSlot lookup.
+const cap = @import("../ipc/capability_core.zig");
+// Tuo capability-syscall-ydin — rights_mask dekoodaus.
+const cap_core = @import("cap_syscall_core.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -318,6 +322,28 @@ fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(recv_len);
 }
 
+// sys_cap_delegate — delegoi osa oikeuksista uuteen capability-slottiin.
+fn sysCapDelegate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Lähde capability-slotti.
+    const slot_idx: u32 = @intCast(a1);
+    // Pyydetyt oikeudet bitmaskina.
+    const mask: u32 = @intCast(a2);
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const new_rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const new_rights: cap.Rights = @bitCast(new_rights_raw);
+    // Hae lähdeslotti — virheellinen indeksi.
+    const src = cap.lookupSlot(slot_idx) orelse return abi.EBADF;
+    // Delegointi vaatii grant-bitin lähde-slotissa.
+    if (!src.rights.grant) return abi.EPERM;
+    // Uudet oikeudet ⊆ alkuperäiset oikeudet.
+    if (!cap.rightsSubset(src.rights, new_rights)) return abi.EPERM;
+    // Asenna uusi slotti samalle objektille.
+    const derived = cap.delegateSlot(slot_idx, new_rights) orelse return abi.EINVAL;
+    // Palauta uuden slotin indeksi.
+    return @intCast(derived);
+}
+
 // sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
 fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Käyttäjän puskurin osoite.
@@ -351,6 +377,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_send)] = sysIpcSend;
     // Rekisteröi sys_ipc_recv (capability-portista vastaanotto).
     table[@intCast(abi.SYS_ipc_recv)] = sysIpcRecv;
+    // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
+    table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Rekisteröi sys_meminfo (shell meminfo-komento).

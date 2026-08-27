@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **9** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **10** (ei vielä ROADMAPissa) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -24,8 +24,9 @@
 | 6 Ajurit & tiedostojärjestelmä | ✅ |
 | 7 Turvallisuus & kovennus | ✅ |
 | 8 IPC käyttäjätilaan | ✅ |
+| 9 Capability delegointi | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 9)
+### Tämän kierroksen prioriteetti (Vaihe 10)
 
 Katso `docs/ROADMAP.md` — seuraava vaihe määritellään sinne.
 

@@ -158,6 +158,23 @@ zig build run
 
 ---
 
+## Vaihe 9 — Capability delegointi käyttäjätilaan ✅
+
+**Tavoite**: Ring 3 voi delegoida capability-oikeuksia `sys_cap_delegate`-syscallilla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 9.1 | sys_cap_delegate | `kernel/syscall/dispatch.zig`, `cap_syscall_core.zig` | ✅ invoke + Cap syscall OK |
+| 9.2 | Userland cap-kirjasto | `userland/lib/cap.zig` | ✅ ring 3 delegate + Userland cap test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap syscall OK, userland cap OK, Userland cap test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -170,6 +187,7 @@ graph TD
     V5 --> V6[Vaihe 6: FS]
     V6 --> V7[Vaihe 7: Turvallisuus]
     V7 --> V8[Vaihe 8: IPC userland]
+    V8 --> V9[Vaihe 9: Cap delegate]
 ```
 
 ---

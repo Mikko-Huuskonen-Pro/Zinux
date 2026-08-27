@@ -14,6 +14,8 @@ pub const SYS_getpid: u64 = 3;
 pub const SYS_ipc_send: u64 = 4;
 // Syscall-numero: sys_ipc_recv(slot, buf, len) → vastaanotetut tavut tai neg. virhe.
 pub const SYS_ipc_recv: u64 = 5;
+// Syscall-numero: sys_cap_delegate(slot, rights_mask) → uusi slot tai neg. virhe.
+pub const SYS_cap_delegate: u64 = 6;
 // Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
 pub const SYS_read: u64 = 11;
 // Syscall-numero: sys_meminfo(buf, len) → kirjoitetut tavut.
@@ -24,6 +26,7 @@ pub const SYS_ps: u64 = 13;
 pub const SYS_test_return: u64 = 10;
 
 // Virhekoodit (negatiiviset paluuarvot, Linux-yhteensopiva tyyli).
+pub const EPERM: i64 = -1;
 pub const EAGAIN: i64 = -11;
 pub const EINVAL: i64 = -22;
 pub const EBADF: i64 = -9;

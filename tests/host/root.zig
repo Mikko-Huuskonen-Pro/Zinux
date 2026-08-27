@@ -85,3 +85,13 @@ test {
 test {
     _ = @import("ipc_syscall_test.zig");
 }
+
+// Tuo capability-syscall-ydin-yksikkötestit.
+test {
+    _ = @import("cap_syscall_test.zig");
+}
+
+// Tuo userland capability-ydin-yksikkötestit.
+test {
+    _ = @import("cap_core_test.zig");
+}

@@ -192,6 +192,12 @@ fn kmain() noreturn {
     // Vaihe 8.2 — userland IPC-kirjasto (ipc.zig send/recv ring 3:ssa).
     const ipc_userland = @import("ipc_userland.zig");
     ipc_userland.runBootTest();
+    // Vaihe 9.2 — userland capability delegointi (cap.zig ring 3:ssa).
+    const cap_userland = @import("cap_userland.zig");
+    cap_userland.runBootTest();
+    // Vaihe 9.1 — sys_cap_delegate syscall (invoke + Cap syscall OK).
+    const cap_syscall = @import("syscall/cap_syscall.zig");
+    cap_syscall.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).
