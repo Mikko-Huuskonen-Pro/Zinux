@@ -8,7 +8,7 @@
 ## Nykyinen vaihe: **27** ⬜
 
 **Branch**: `cursor/scheduler-preempt-4d97`  
-**PR**: (luodaan pushin jälkeen)  
+**PR**: https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/5  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
