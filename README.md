@@ -16,7 +16,7 @@ A Zinux driver is therefore not necessarily a permanent piece of the operating s
 
 The intended model is:
 
-```text
+```
 Hardware
     │
     ▼
@@ -46,6 +46,8 @@ Sandbox / Capability boundary
     │
     ▼
 Hardware
+
+```
 
 The AI does not receive unrestricted access to the system.
 
