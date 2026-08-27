@@ -8,6 +8,7 @@
 ## Nykyinen vaihe: **21** (ei vielä ROADMAPissa) ⬜
 
 **Branch**: `cursor/process-table-phase20-4d97`  
+**PR**: [#2](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/2)  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
