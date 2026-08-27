@@ -100,3 +100,13 @@ test {
 test {
     _ = @import("ipc_block_test.zig");
 }
+
+// Tuo prosessitaulukko-yksikkötestit (Vaihe 20).
+test {
+    _ = @import("process_test.zig");
+}
+
+// Tuo ps-syscall-ydin-yksikkötestit (Vaihe 23).
+test {
+    _ = @import("ps_syscall_test.zig");
+}

@@ -37,6 +37,9 @@ pub fn runAll() void {
     // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
     const cap_audit = @import("ipc/cap_audit.zig");
     cap_audit.runBootTest();
+    // Vaihe 20 — prosessitaulukko + capability-slotit per pid + getpid.
+    const process_boot = @import("sched/process.zig");
+    process_boot.runBootTest();
     // Vaihe 7.5 — syscall dispatch -fuzz (ENOSYS tuntemattomille).
     const syscall_fuzz = @import("syscall/syscall_fuzz.zig");
     syscall_fuzz.runBootTest();
@@ -53,6 +56,9 @@ pub fn runAll() void {
     // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".
     const elf_loader = @import("loader/elf.zig");
     elf_loader.runBootTest();
+    // Vaihe 21 — sys_spawn + kaksi erillistä spawn-lasta ring 3:ssa.
+    const spawn_syscall = @import("syscall/spawn_syscall.zig");
+    spawn_syscall.runBootTest();
     // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
     const init_proc = @import("init.zig");
     init_proc.launch();
@@ -155,6 +161,15 @@ pub fn runAll() void {
     // Vaihe 19.2 — userland ipc.queueCapacity (ring 3 max queue depth query).
     const ipc_queue_capacity_userland = @import("ipc_queue_capacity_userland.zig");
     ipc_queue_capacity_userland.runBootTest();
+    // Vaihe 22 — cross-process IPC: cap transfer + send/recv eri pideillä.
+    const cross_ipc_syscall = @import("syscall/cross_ipc_syscall.zig");
+    cross_ipc_syscall.runBootTest();
+    // Vaihe 22.3 — userland cross-IPC sender/receiver ring 3:ssa.
+    const cross_ipc_userland = @import("cross_ipc_userland.zig");
+    cross_ipc_userland.runBootTest();
+    // Vaihe 23 — cap_create currentPid (S1) + sys_ps prosessitaulukosta.
+    const ps_syscall = @import("syscall/ps_syscall.zig");
+    ps_syscall.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

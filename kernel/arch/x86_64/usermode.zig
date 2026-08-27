@@ -16,6 +16,8 @@ const heap = @import("../../mm/heap.zig");
 const log = @import("../../lib/log.zig");
 // Tuo user_access — stac/clac SMAP-yhteensopivuuteen user-sivuille.
 const user_access = @import("user_access.zig");
+// Tuo prosessitaulukko — current pid ring 3 -kontekstissa (Vaihe 20).
+const process = @import("process_core");
 
 // Sivujen offset heapin alusta — yli INITIAL_PAGES (4) + marginaali.
 const USER_PAGE_SLOT: u64 = 16;
@@ -43,6 +45,8 @@ extern fn userEntryEnd() void;
 
 // Kernel pinon osoite ennen iretq:ä — export assemblylle.
 pub export var usermode_saved_kernel_rsp: u64 = 0;
+// Palautettava pid ennen ring 3 -hyppyä (sys_test_return palauttaa).
+var usermode_saved_pid: u64 = process.BOOT_PID;
 
 // Siirry ring 3:een — usermode_jump.S iretq (palaa ret:llä sys_test_return:in kautta).
 extern fn usermodeEnterIret(
@@ -79,12 +83,24 @@ fn setupUserPages() bool {
 
 // Palaa kerneliin sys_test_return-käsittelijästä.
 pub fn returnToKernelTestContinue() noreturn {
+    // Palauta edellinen prosessikonteksti ennen kernel-jatkoa.
+    _ = process.setCurrentPid(usermode_saved_pid);
     // Delegoi assembly-toteutukselle.
     usermodeReturnToKernel();
 }
 
 // Siirry ring 3:een annetulla entry:llä ja pinolla (iretq + sys_test_return paluu).
 pub fn enterUser(entry: u64, user_stack_top: u64) void {
+    // Oletus: boot/init-prosessi pid 1.
+    enterUserAs(entry, user_stack_top, process.BOOT_PID);
+}
+
+// Siirry ring 3:een tietyllä prosessitunnisteella (syscall getpid).
+pub fn enterUserAs(entry: u64, user_stack_top: u64, pid: u64) void {
+    // Tallenna nykyinen pid ennen user-kontekstia.
+    usermode_saved_pid = process.currentPid();
+    // Aseta current pid userland-syscallien ajaksi.
+    _ = process.setCurrentPid(pid);
     // User segmenttivalitsimet RPL 3.
     const user_cs: u64 = gdt.USER_CODE_SEL | 3;
     const user_ss: u64 = gdt.USER_DATA_SEL | 3;

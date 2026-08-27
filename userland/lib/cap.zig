@@ -36,6 +36,8 @@ pub const SYS_cap_get_rights: u64 = 15;
 pub const SYS_cap_get_type: u64 = 16;
 // Syscall-numero: sys_cap_get_resource(slot).
 pub const SYS_cap_get_resource: u64 = 18;
+// Syscall-numero: sys_cap_transfer(slot, dest_pid, rights_mask) — Vaihe 22.
+pub const SYS_cap_transfer: u64 = 21;
 
 // Capability-kirjaston virheet.
 pub const CapError = error{
@@ -126,6 +128,18 @@ fn sysCapDelegate(slot: u32, rights_mask: u32) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_cap_transfer — palauttaa raa'an i64-paluuarvon.
+fn sysCapTransfer(slot: u32, dest_pid: u64, rights_mask: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot, RSI=dest_pid, RDX=rights_mask.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_cap_transfer),
+          [slot] "{rdi}" (@as(u64, slot)),
+          [dest] "{rsi}" (dest_pid),
+          [mask] "{rdx}" (@as(u64, rights_mask)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Delegoi osa oikeuksista uuteen slottiin — palauttaa uuden slot-indeksin.
 pub fn delegate(slot: u32, rights_mask: u32) CapError!u32 {
     // Tarkista maski ennen syscallia.
@@ -185,5 +199,17 @@ pub fn getResource(slot: u32) CapError!u32 {
     // Negatiivinen → virhe.
     if (core.isError(ret)) return mapSyscallError(ret);
     // Palauta resurssitunniste.
+    return @intCast(ret);
+}
+
+// Siirrä capability toiselle prosessille — palauttaa uuden slot-indeksin kohdeprosessissa.
+pub fn transfer(slot: u32, dest_pid: u64, rights_mask: u32) CapError!u32 {
+    // Tarkista maski ennen syscallia.
+    if (!core.validMask(rights_mask)) return error.InvalidArg;
+    // Kutsu kerneliä — siirrä slotti kohdeprosessiin.
+    const ret = sysCapTransfer(slot, dest_pid, rights_mask);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
+    // Palauta uuden slotin indeksi kohdeprosessissa.
     return @intCast(ret);
 }

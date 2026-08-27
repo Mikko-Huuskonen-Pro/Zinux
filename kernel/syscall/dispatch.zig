@@ -28,6 +28,12 @@ const ipc_block_core = @import("ipc_block_core.zig");
 const cap = @import("../ipc/capability_core.zig");
 // Tuo capability-syscall-ydin — rights_mask dekoodaus.
 const cap_core = @import("cap_syscall_core.zig");
+// Tuo prosessitaulukko — current pid getpid-syscallille (Vaihe 20).
+const process = @import("process_core");
+// Tuo spawn — sys_spawn upotetuista ELF:istä (Vaihe 21).
+const spawn = @import("../spawn.zig");
+// Tuo ps-ydin — prosessilistan muotoilu sys_ps:lle (Vaihe 23).
+const ps_core = @import("ps_syscall_core.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -127,10 +133,38 @@ fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     unreachable;
 }
 
-// sys_getpid — palauta prosessitunniste (stub aina 1).
+// sys_getpid — palauta nykyisen prosessin tunniste.
 fn sysGetpid(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
-    // Yksittäinen kernel-prosessi stub.
-    return 1;
+    // Delegoi prosessitaulukon current pid:lle.
+    return @intCast(process.currentPid());
+}
+
+// sys_spawn — luo uusi prosessi upotetusta ELF-tunnisteesta (Vaihe 21).
+fn sysSpawn(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Embedded ELF -tunniste (0 = lapsi A, 1 = lapsi B).
+    const embedded_id = a1;
+    // Lataa ELF uudelle pid:lle prosessitaulukkoon.
+    const pid = spawn.spawnEmbedded(embedded_id) orelse return abi.EINVAL;
+    // Palauta uuden prosessin tunniste.
+    return @intCast(pid);
+}
+
+// sys_cap_transfer — siirrä capability toiselle prosessille (Vaihe 22).
+fn sysCapTransfer(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Lähde capability-slotti nykyisessä prosessissa.
+    const src_slot: u32 = @intCast(a1);
+    // Kohdeprosessin tunniste.
+    const dest_pid = a2;
+    // Siirrettävät oikeudet bitmaskina.
+    const mask: u32 = @intCast(a3);
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const new_rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const new_rights: cap.Rights = @bitCast(new_rights_raw);
+    // Siirrä slotti kohdeprosessiin — grant vaaditaan lähde-slotissa.
+    const derived = cap.transferSlotToPid(src_slot, dest_pid, new_rights) orelse return abi.EPERM;
+    // Palauta uuden slotin indeksi kohdeprosessissa.
+    return @intCast(derived);
 }
 
 // sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
@@ -470,27 +504,42 @@ fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     const rights: cap.Rights = @bitCast(rights_raw);
     // Luo fyysinen IPC-portti.
     const port_id = port.createPort() orelse return abi.EINVAL;
-    // Asenna capability portille — palauta slot-indeksi.
-    const slot = cap.createAndInstall(.port, 1, port_id, rights) orelse return abi.EINVAL;
+    // Asenna capability nykyisen prosessin slottiin (Vaihe 23 security S1).
+    const owner = process.currentPid();
+    const slot = cap.createAndInstall(.port, owner, port_id, rights) orelse return abi.EINVAL;
     // Palauta uuden capability-slotin indeksi.
     return @intCast(slot);
 }
 
-// sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
+// Callback ps_core:lle — pid taulukko-indeksillä.
+fn psPidAt(index: usize) ?u64 {
+    // Delegoi prosessitaulukon pidAt:lle.
+    return process.pidAt(index);
+}
+
+// Callback ps_core:lle — onko prosessilla ladattu ELF.
+fn psLoadedAt(pid: u64) bool {
+    // Delegoi prosessitaulukon isLoaded:lle.
+    return process.isLoaded(pid);
+}
+
+// sys_ps — täytä käyttäjän puskuri prosessitaulukon listalla (Vaihe 23).
 fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Käyttäjän puskurin osoite.
     const user: [*]u8 = @ptrFromInt(a1);
     // Puskurin enimmäispituus.
     const user_len = a2;
-    // Staattinen prosessilista (kernel-säikeet + user stub).
-    const listing =
-        \\  PID  NAME
-        \\    0  kernel
-        \\    1  shell
-        \\
-    ;
-    // Kopioi lista käyttäjän puskuriin.
-    return copyToUser(user, user_len, listing, listing.len);
+    // Kernel-puskuri muotoilua varten.
+    var kbuf: [256]u8 = undefined;
+    // Muotoile prosessilista prosessitaulukosta.
+    const klen = ps_core.formatListing(
+        process.processCount(),
+        psPidAt,
+        psLoadedAt,
+        &kbuf,
+    );
+    // Kopioi muotoiltu teksti käyttäjän puskuriin.
+    return copyToUser(user, user_len, kbuf[0..klen], klen);
 }
 
 // Dispatch-taulukko — indeksi = syscall-numero (max 31).
@@ -515,6 +564,10 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_pending)] = sysIpcPending;
     // Rekisteröi sys_ipc_queue_capacity (portin jonon maksimisyvyys).
     table[@intCast(abi.SYS_ipc_queue_capacity)] = sysIpcQueueCapacity;
+    // Rekisteröi sys_spawn (upotettu ELF → uusi prosessi).
+    table[@intCast(abi.SYS_spawn)] = sysSpawn;
+    // Rekisteröi sys_cap_transfer (capability toiselle prosessille).
+    table[@intCast(abi.SYS_cap_transfer)] = sysCapTransfer;
     // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
     table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
