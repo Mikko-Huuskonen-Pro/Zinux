@@ -141,19 +141,19 @@ zig build run
 
 ---
 
-## Vaihe 8 — IPC käyttäjätilaan
+## Vaihe 8 — IPC käyttäjätilaan ✅
 
 **Tavoite**: Ring 3 voi lähettää/vastaanottaa viestejä capability-slottien kautta syscallien avulla.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
 | 8.1 | sys_ipc_send / sys_ipc_recv | `kernel/syscall/dispatch.zig`, `ipc_syscall_core.zig` | ✅ invoke + IPC syscall OK |
-| 8.2 | Userland IPC-kirjasto | `userland/lib/ipc.zig` | ⬜ |
+| 8.2 | Userland IPC-kirjasto | `userland/lib/ipc.zig` | ✅ ring 3 send/recv + Userland IPC test OK |
 
 **Testi**:
 ```bash
 zig build run
-# Odotettu serial: IPC port test OK, IPC syscall OK
+# Odotettu serial: IPC syscall OK, userland ipc OK, Userland IPC test OK
 ```
 
 ---

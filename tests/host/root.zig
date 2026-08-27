@@ -71,6 +71,11 @@ test {
     _ = @import("cap_audit_test.zig");
 }
 
+// Tuo IPC userland boot-testi (Vaihe 8.2).
+test {
+    _ = @import("ipc_core_test.zig");
+}
+
 // Tuo syscall-fuzz-ydin-yksikkötestit.
 test {
     _ = @import("syscall_fuzz_test.zig");

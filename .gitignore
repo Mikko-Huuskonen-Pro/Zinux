@@ -7,6 +7,7 @@ zig-out/
 kernel/loader/test_prog.bin
 kernel/loader/init_prog.bin
 kernel/loader/shell_prog.bin
+kernel/loader/ipc_test_prog.bin
 
 # Editorit
 .idea/

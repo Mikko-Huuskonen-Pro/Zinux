@@ -189,6 +189,9 @@ fn kmain() noreturn {
     // Vaihe 6.5 — käyttäjätilan ajurimalli (registry + null driver).
     const userland_driver = @import("userland_driver.zig");
     userland_driver.runBootTest();
+    // Vaihe 8.2 — userland IPC-kirjasto (ipc.zig send/recv ring 3:ssa).
+    const ipc_userland = @import("ipc_userland.zig");
+    ipc_userland.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).

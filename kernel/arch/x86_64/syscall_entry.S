@@ -38,6 +38,13 @@ syscallEntry:
     pop %r12
     pop %rbx
     pop %rbp
+    // Palauta käyttäjän argumenttirekisterit — C-kutsu clobberoi ne.
+    mov 8(%rsp), %rdi
+    mov 16(%rsp), %rsi
+    mov 24(%rsp), %rdx
+    mov 32(%rsp), %r10
+    mov 40(%rsp), %r8
+    mov 48(%rsp), %r9
     // Palauta user RIP/RFLAGS kehyksestä — C-kutsu voi clobberoida RCX/R11.
     mov 56(%rsp), %rcx
     mov 64(%rsp), %r11

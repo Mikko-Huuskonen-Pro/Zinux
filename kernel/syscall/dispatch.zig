@@ -270,13 +270,20 @@ fn sysIpcSend(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     if (len > port.MAX_MSG_SIZE) return abi.EINVAL;
     // Kernel-puskuri user-datalle ennen sendViaSlot-kutsua.
     var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
-    // Kopioi user-puskuri kerneliin.
-    const copied = copyFromUser(&kbuf, user, len);
-    // Kopio epäonnistui tai tyhjä (ei pitäisi tapahtua len>0).
-    if (copied <= 0) return abi.EINVAL;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(@as(usize, @intCast(len)), kbuf.len);
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
+    // Kopioi user-puskuri kerneliin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Lue yksi tavu user-muistista.
+        kbuf[i] = user[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     // Lähetä slotin kautta (capability-tarkistus port.zig:ssä).
-    // Lähetä slotin kautta (capability-tarkistus port.zig:ssä).
-    const sent = port.sendViaSlot(slot_idx, kbuf[0..@intCast(copied)]) catch |err| return ipc_core.mapPortError(err);
+    const sent = port.sendViaSlot(slot_idx, kbuf[0..copy_len]) catch |err| return ipc_core.mapPortError(err);
     // Palauta lähetettyjen tavujen määrä.
     return @intCast(sent);
 }
@@ -295,8 +302,18 @@ fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
     // Vastaanota slotin kautta (capability-tarkistus port.zig:ssä).
     const recv_len = port.recvViaSlot(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
-    // Kopioi viesti käyttäjän puskuriin (max user_len tavua).
-    _ = copyToUser(user, user_len, kbuf[0..recv_len], recv_len);
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(recv_len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen kirjoitus kernelistä.
+    user_access.stac();
+    // Kopioi viesti käyttäjän puskuriin tavu kerrallaan.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Kirjoita yksi tavu user-muistiin.
+        user[i] = kbuf[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
     // Palauta viestin alkuperäinen pituus (kuten read()).
     return @intCast(recv_len);
 }
