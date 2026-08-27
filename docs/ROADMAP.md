@@ -328,7 +328,7 @@ zig build run
 
 ---
 
-## Lyhyen aikavälin suunnitelma (vaiheet 19–22)
+## Lyhyen aikavälin suunnitelma (vaiheet 19–22) ✅
 
 > **Prioriteetti**: ensin IPC-introspektion viimeistely (19), sitten cross-process IPC (20–22).
 > **Boot**: `zig build run` = smoke (~10 s), `zig build boot-test` = full integraatiotestit (QEMU lopettaa itse).
@@ -339,6 +339,31 @@ zig build run
 | **20** | Prosessitaulukko | Erilliset capability-slotit per pid | ✅ |
 | **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) | ✅ |
 | **22** | Cross-process IPC | Viesti prosessista A → prosessiin B | ✅ |
+
+---
+
+## Keskipitkän aikavälin suunnitelma (vaiheet 23–28)
+
+> **Prioriteetti**: prosessien hallinta ja introspectio (23–24) → osoiteavaruudet (25) → scheduler (26) → userland-IPC demo (27) → mmap (28).
+> **Boot**: `zig build boot-test` = täysi integraatiotestisuite.
+
+| Vaihe | Teema | Tavoite |
+|-------|-------|---------|
+| **23** | Prosessilista (`sys_ps`) | Oikeat PID:t prosessitaulukosta + shell `ps` |
+| **24** | Prosessin elinkaari | `sys_exit` + `sys_wait` (spawn → exit → wait) |
+| **25** | Osoiteavaruudet | Erillinen sivutaulu / CR3 per prosessi |
+| **26** | Scheduler + prosessit | Timer-preempt, useita prosesseja vuorotellen |
+| **27** | Cross-IPC userland | Spawn + cap_transfer + send/recv ring 3:ssa |
+| **28** | Capability-mmap | `sys_mem_map` memory-capabilitylla |
+
+### Tunnetut korjattavat (security review, PR #2)
+
+Ennen/moniprosessin laajennuksen yhteydessä korjataan PR #2 -reviewin medium-löydökset:
+
+| # | Ongelma | Korjaus (suunniteltu) |
+|---|---------|----------------------|
+| S1 | `sys_cap_create` asentaa capin edelleen pid 1:een, slotit haetaan `currentPid`:llä | Vaihe 23: `createAndInstall(..., process.currentPid(), ...)` |
+| S2 | `sys_cap_transfer` voi täyttää uhrin slot-taulukon rajattomilla kopioilla | Vaihe 27 tai erillinen hardening: deduplikointi / siirto (ei pelkkä kopio) |
 
 ---
 
@@ -406,6 +431,122 @@ zig build boot-test
 
 ---
 
+## Vaihe 23 — Prosessilista (`sys_ps`) ⬜
+
+**Tavoite**: `sys_ps` ja shell `ps` näyttävät oikeat prosessit prosessitaulukosta (ei kovakoodattu stub).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 23.0 | Security: `sys_cap_create` → `currentPid` | `dispatch.zig`, `capability_core.zig` | ⬜ Cap create pid OK |
+| 23.1 | `sys_ps` prosessitaulukosta | `dispatch.zig`, `process_core.zig` | ⬜ Ps syscall OK |
+| 23.2 | Shell `ps` päivitetty | `userland/shell/commands/ps.zig` | ⬜ shell ps OK |
+| 23.3 | Boot-testi: useita prosesseja listassa | `ps_syscall.zig`, host-testit | ⬜ Ps lists processes OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Cap create pid OK, Ps syscall OK, Ps lists processes OK
+# Shell boot-testissä: ps tulostaa vähintään boot-pid (1) ja testiprosessit
+```
+
+---
+
+## Vaihe 24 — Prosessin elinkaari (exit / wait) ⬜
+
+**Tavoite**: Spawnattu prosessi voi lopettaa itsensä; vanhempi voi odottaa lapsen (`sys_wait` stub).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 24.1 | Prosessin tila (running / zombie) | `process_core.zig` | ⬜ Process state OK |
+| 24.2 | `sys_exit` merkitsee prosessin zombieksi | `dispatch.zig` | ⬜ Exit syscall OK |
+| 24.3 | `sys_wait(pid)` — odota yksi lapsi | `dispatch.zig`, `wait_syscall.zig` | ⬜ Process wait OK |
+| 24.4 | Boot-testi: spawn → exit → wait | `spawn.zig`, boot-testit | ⬜ Spawn wait boot OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Exit syscall OK, Process wait OK, Spawn wait boot OK
+```
+
+---
+
+## Vaihe 25 — Osoiteavaruudet per prosessi ⬜
+
+**Tavoite**: Jokaisella prosessilla oma sivutaulu (CR3); ELF-loader kartoittaa vain prosessin osoiteavaruuteen.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 25.1 | `Process.page_table` + CR3-vaihto | `process_core.zig`, `vmm.zig` | ⬜ Page table per pid OK |
+| 25.2 | ELF-loader prosessikohtaiseen tauluun | `loader/elf.zig`, `spawn.zig` | ⬜ ELF per address space OK |
+| 25.3 | Boot-testi: kaksi ELF:ää sama VA, eri prosessit | boot-testit | ⬜ Address space OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Page table per pid OK, Address space OK
+```
+
+---
+
+## Vaihe 26 — Scheduler + prosessit ⬜
+
+**Tavoite**: Timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee (ei vain peräkkäinen `enterUserAs`).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 26.1 | Prosessi → säie(t) prosessitaulukossa | `process_core.zig`, `thread.zig` | ⬜ Process threads OK |
+| 26.2 | Timer IRQ → prosessinvaihto | `scheduler.zig`, `idt.zig` | ⬜ Timer preempt OK |
+| 26.3 | Boot-testi: kaksi prosessia vuorottelee | boot-testit | ⬜ Preempt OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Timer preempt OK, Preempt OK (ABAB tai vastaava vuorottelu)
+```
+
+**Riippuvuus**: suositeltu vaihe 25 (erilliset osoiteavaruudet) ennen täyttä preemptiota.
+
+---
+
+## Vaihe 27 — Cross-process IPC userland-demo ⬜
+
+**Tavoite**: Userland-prosessi spawnaa toisen, siirtää recv-capabilityn, send → recv ilman kernel-orchestraatiota.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 27.0 | Security: `sys_cap_transfer` deduplikointi / siirto | `capability_core.zig` | ⬜ Cap transfer bounded OK |
+| 27.1 | `userland/lib/spawn.zig` + `cap.transfer()` demo | `userland/lib/` | ⬜ Userland spawn cap OK |
+| 27.2 | Parent spawn → transfer → child recv | `userland/cross_spawn_ipc_test/` | ⬜ Userland cross spawn IPC OK |
+| 27.3 | Boot-testi ring 3:ssa | kernel launcher + ELF | ⬜ Userland cross spawn IPC test OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Cap transfer bounded OK, Userland cross spawn IPC OK, Userland cross spawn IPC test OK
+```
+
+---
+
+## Vaihe 28 — Capability-pohjainen mmap (`sys_mem_map`) ⬜
+
+**Tavoite**: Memory-capability + `sys_mem_map` kartoittaa yhden sivun ring 3:een (ARCHITECTURE.md §6).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 28.1 | Memory-capability tyyppi | `capability_core.zig`, `zinuxabi.zig` | ⬜ Mem cap type OK |
+| 28.2 | `sys_mem_map(slot, addr, flags)` | `dispatch.zig`, `mem_map_syscall.zig` | ⬜ Mem map syscall OK |
+| 28.3 | Userland demo: kirjoita/lue kartoitettu sivu | `userland/mem_map_test/` | ⬜ Userland mem map OK |
+
+**Testi**:
+```bash
+zig build boot-test
+# Odotettu serial: Mem map syscall OK, Userland mem map OK, Userland mem map test OK
+```
+
+**Riippuvuus**: vaihe 25 (prosessikohtainen sivutaulu) suositeltu ennen userland-mmapia.
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -432,6 +573,12 @@ graph TD
     V19 --> V20[Vaihe 20: Process table]
     V20 --> V21[Vaihe 21: sys_spawn]
     V21 --> V22[Vaihe 22: Cross-process IPC]
+    V22 --> V23[Vaihe 23: sys_ps]
+    V23 --> V24[Vaihe 24: exit/wait]
+    V24 --> V25[Vaihe 25: Address spaces]
+    V25 --> V26[Vaihe 26: Preemptive scheduler]
+    V22 --> V27[Vaihe 27: Userland cross IPC]
+    V25 --> V28[Vaihe 28: sys_mem_map]
 ```
 
 ---

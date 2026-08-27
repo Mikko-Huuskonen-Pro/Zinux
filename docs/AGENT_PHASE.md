@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **23** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **23** ⬜
 
 **Branch**: `cursor/process-table-phase20-4d97`  
 **PR**: [#2](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/2)  
@@ -41,7 +41,8 @@
 
 ### Tämän kierroksen prioriteetti (Vaihe 23)
 
-Katso `docs/ROADMAP.md` — seuraava vaihe roadmapin mukaan.
+**Prosessilista + cap_create-pid-korjaus** — `sys_ps` prosessitaulukosta, security review S1.  
+Katso `docs/ROADMAP.md` vaihe 23 (23.0 → 23.3).
 
 ---
 
