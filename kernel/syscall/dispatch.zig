@@ -34,6 +34,8 @@ const process = @import("process_core");
 const spawn = @import("../spawn.zig");
 // Tuo ps-ydin — prosessilistan muotoilu sys_ps:lle (Vaihe 23).
 const ps_core = @import("ps_syscall_core.zig");
+// Tuo wait-ydin — sys_wait parent/child-tarkistus (Vaihe 24).
+const wait_core = @import("wait_syscall_core.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -123,14 +125,69 @@ fn sysRead(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(len);
 }
 
-// sys_exit — lopeta prosessi (stub: pysäytä CPU).
+// sys_exit — merkitse prosessi zombieksi ja palaa kerneliin ring 3:sta (Vaihe 24).
 fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
-    // Exit-koodi (ei vielä tallenneta).
-    _ = a1;
-    // Poista keskeytykset ja pysäytä — oikea prosessi-KO myöhemmin.
+    // Exit status-koodi (u32).
+    const code: u32 = @truncate(a1);
+    // Ring 3 polku — käytä enterUserAs:ssa tallennettua pid:ä (varmuus currentPid:lle).
+    if (usermode.usermode_saved_kernel_rsp != 0) {
+        // Synkronoi current pid ennen zombie-merkintää.
+        _ = process.setCurrentPid(usermode.activeRing3Pid());
+    }
+    // Nykyinen prosessi lopettaa itsensä.
+    const pid = process.currentPid();
+    // Merkitse zombie — virhe jos jo zombie tai puuttuu.
+    if (!process.markZombie(pid, code)) return abi.ESRCH;
+    // Ring 3 kontekstista palaa spawn boot-testiin (kuten sys_test_return).
+    if (usermode.usermode_saved_kernel_rsp != 0) {
+        // Ei paluuta — hyppää takaisin kernel-pinolle.
+        usermode.returnToKernelTestContinue();
+    }
+    // Kernel invoke -polku — ei pitäisi tapahtua boot-testissä.
     asm volatile ("cli; hlt");
     // Ei saavuteta.
     unreachable;
+}
+
+// Callback wait_core:lle — onko prosessi olemassa.
+fn waitExists(pid: u64) bool {
+    // Delegoi process_core.exists.
+    return process.exists(pid);
+}
+
+// Callback wait_core:lle — vanhemman pid.
+fn waitParentOf(pid: u64) ?u64 {
+    // Delegoi process_core.parentPid.
+    return process.parentPid(pid);
+}
+
+// Callback wait_core:lle — onko zombie.
+fn waitIsZombie(pid: u64) bool {
+    // Delegoi process_core.isZombie.
+    return process.isZombie(pid);
+}
+
+// Callback wait_core:lle — exit-koodi.
+fn waitExitCode(pid: u64) ?u32 {
+    // Delegoi process_core.exitCode.
+    return process.exitCode(pid);
+}
+
+// sys_wait — odota yhden lapsen zombie-tila ja palauta exit-koodi (Vaihe 24).
+fn sysWait(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Odotettavan lapsen prosessitunniste.
+    const child_pid = a1;
+    // Nykyinen prosessi on vanhempi.
+    const parent_pid = process.currentPid();
+    // Delegoi wait-ytimelle — ECHILD/ESRCH/EAGAIN tai exit-koodi.
+    return wait_core.tryWaitChild(
+        parent_pid,
+        child_pid,
+        waitExists,
+        waitParentOf,
+        waitIsZombie,
+        waitExitCode,
+    );
 }
 
 // sys_getpid — palauta nykyisen prosessin tunniste.
@@ -568,6 +625,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_spawn)] = sysSpawn;
     // Rekisteröi sys_cap_transfer (capability toiselle prosessille).
     table[@intCast(abi.SYS_cap_transfer)] = sysCapTransfer;
+    // Rekisteröi sys_wait (lapsen zombie-tilan odotus).
+    table[@intCast(abi.SYS_wait)] = sysWait;
     // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
     table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).

@@ -537,6 +537,29 @@ pub fn build(b: *std.Build) void {
     copy_spawn_child_b_elf.addFileArg(embedded_spawn_child_b_path);
     copy_spawn_child_b_elf.step.dependOn(&spawn_child_b_exe.step);
 
+    // --- Spawn child exit user-ELF (Vaihe 24) — upotetaan kerneliin ---
+    const spawn_child_exit_mod = b.createModule(.{
+        .root_source_file = b.path("userland/spawn_child_exit/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    spawn_child_exit_mod.red_zone = false;
+    spawn_child_exit_mod.stack_protector = false;
+    spawn_child_exit_mod.single_threaded = true;
+    const spawn_child_exit_exe = b.addExecutable(.{
+        .name = "zinux-spawn-child-exit",
+        .root_module = spawn_child_exit_mod,
+    });
+    spawn_child_exit_exe.setLinkerScript(b.path("userland/spawn_child_exit/user.ld"));
+    spawn_child_exit_exe.root_module.addAssemblyFile(b.path("userland/spawn_child_exit/start.S"));
+    b.installArtifact(spawn_child_exit_exe);
+
+    const embedded_spawn_child_exit_path = b.path("kernel/loader/spawn_child_exit_prog.bin");
+    const copy_spawn_child_exit_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_spawn_child_exit_elf.addFileArg(spawn_child_exit_exe.getEmittedBin());
+    copy_spawn_child_exit_elf.addFileArg(embedded_spawn_child_exit_path);
+    copy_spawn_child_exit_elf.step.dependOn(&spawn_child_exit_exe.step);
+
     // --- Cross-IPC userland test ELF (Vaihe 22.3) — upotetaan kerneliin ---
     const cross_ipc_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/cross_ipc_test/main.zig"),
@@ -591,6 +614,7 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_ipc_block_test_elf.step);
     kernel.step.dependOn(&copy_spawn_child_a_elf.step);
     kernel.step.dependOn(&copy_spawn_child_b_elf.step);
+    kernel.step.dependOn(&copy_spawn_child_exit_elf.step);
     kernel.step.dependOn(&copy_cross_ipc_test_elf.step);
     b.installArtifact(kernel);
 
@@ -725,6 +749,12 @@ pub fn build(b: *std.Build) void {
         .optimize = .Debug,
     });
     host_test_mod.addImport("ps_syscall_core", ps_syscall_core_mod);
+    const wait_syscall_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/syscall/wait_syscall_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    host_test_mod.addImport("wait_syscall_core", wait_syscall_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });

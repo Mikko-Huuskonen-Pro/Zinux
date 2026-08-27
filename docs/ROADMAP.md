@@ -350,7 +350,7 @@ zig build run
 | Vaihe | Teema | Tavoite |
 |-------|-------|---------|
 | **23** | Prosessilista (`sys_ps`) | Oikeat PID:t prosessitaulukosta + shell `ps` | ✅ |
-| **24** | Prosessin elinkaari | `sys_exit` + `sys_wait` (spawn → exit → wait) |
+| **24** | Prosessin elinkaari | `sys_exit` + `sys_wait` (spawn → exit → wait) | ✅ |
 | **25** | Osoiteavaruudet | Erillinen sivutaulu / CR3 per prosessi |
 | **26** | Scheduler + prosessit | Timer-preempt, useita prosesseja vuorotellen |
 | **27** | Cross-IPC userland | Spawn + cap_transfer + send/recv ring 3:ssa |
@@ -455,21 +455,21 @@ zig build boot-test
 
 ---
 
-## Vaihe 24 — Prosessin elinkaari (exit / wait) ⬜
+## Vaihe 24 — Prosessin elinkaari (exit / wait) ✅
 
-**Tavoite**: Spawnattu prosessi voi lopettaa itsensä; vanhempi voi odottaa lapsen (`sys_wait` stub).
+**Tavoite**: Spawnattu prosessi voi lopettaa itsensä; vanhempi voi odottaa lapsen (`sys_wait`).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 24.1 | Prosessin tila (running / zombie) | `process_core.zig` | ⬜ Process state OK |
-| 24.2 | `sys_exit` merkitsee prosessin zombieksi | `dispatch.zig` | ⬜ Exit syscall OK |
-| 24.3 | `sys_wait(pid)` — odota yksi lapsi | `dispatch.zig`, `wait_syscall.zig` | ⬜ Process wait OK |
-| 24.4 | Boot-testi: spawn → exit → wait | `spawn.zig`, boot-testit | ⬜ Spawn wait boot OK |
+| 24.1 | Prosessin tila (running / zombie) | `process_core.zig` | ✅ Process state OK |
+| 24.2 | `sys_exit` merkitsee prosessin zombieksi | `dispatch.zig` | ✅ Exit syscall OK |
+| 24.3 | `sys_wait(pid)` — odota yksi lapsi | `dispatch.zig`, `wait_syscall.zig` | ✅ Process wait OK |
+| 24.4 | Boot-testi: spawn → exit → wait | `spawn.zig`, boot-testit | ✅ Spawn wait boot OK |
 
 **Testi**:
 ```bash
 zig build boot-test
-# Odotettu serial: Exit syscall OK, Process wait OK, Spawn wait boot OK
+# Odotettu serial: Process state OK, Exit syscall OK, Process wait OK, Spawn wait boot OK
 ```
 
 ---

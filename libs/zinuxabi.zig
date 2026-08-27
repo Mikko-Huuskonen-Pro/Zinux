@@ -44,11 +44,15 @@ pub const SYS_ipc_queue_capacity: u64 = 19;
 pub const SYS_spawn: u64 = 20;
 // Syscall-numero: sys_cap_transfer(slot, dest_pid, rights_mask) → uusi slot tai neg. virhe (Vaihe 22).
 pub const SYS_cap_transfer: u64 = 21;
+// Syscall-numero: sys_wait(child_pid) → exit-koodi tai neg. virhe (Vaihe 24).
+pub const SYS_wait: u64 = 22;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 
 // Virhekoodit (negatiiviset paluuarvot, Linux-yhteensopiva tyyli).
 pub const EPERM: i64 = -1;
+pub const ECHILD: i64 = -10;
+pub const ESRCH: i64 = -3;
 pub const EAGAIN: i64 = -11;
 pub const EINVAL: i64 = -22;
 pub const EBADF: i64 = -9;

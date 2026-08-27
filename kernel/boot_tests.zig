@@ -170,6 +170,9 @@ pub fn runAll() void {
     // Vaihe 23 — cap_create currentPid (S1) + sys_ps prosessitaulukosta.
     const ps_syscall = @import("syscall/ps_syscall.zig");
     ps_syscall.runBootTest();
+    // Vaihe 24 — sys_exit + sys_wait spawn-lapsella (exit/wait elinkaari).
+    const wait_syscall = @import("syscall/wait_syscall.zig");
+    wait_syscall.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

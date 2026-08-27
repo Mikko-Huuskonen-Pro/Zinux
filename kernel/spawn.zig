@@ -15,16 +15,22 @@ const process = @import("process_core");
 const spawn_child_a_elf = @embedFile("loader/spawn_child_a_prog.bin");
 // Upotettu spawn-lapsi B — eri load-osoite ja pinokartoitus.
 const spawn_child_b_elf = @embedFile("loader/spawn_child_b_prog.bin");
+// Upotettu spawn-lapsi exit — sys_exit(42) (Vaihe 24).
+const spawn_child_exit_elf = @embedFile("loader/spawn_child_exit_prog.bin");
 
 // Embedded ELF -tunniste: spawn-lapsi A.
 pub const SPAWN_ID_CHILD_A: u64 = 0;
 // Embedded ELF -tunniste: spawn-lapsi B.
 pub const SPAWN_ID_CHILD_B: u64 = 1;
+// Embedded ELF -tunniste: spawn-lapsi exit (sys_exit).
+pub const SPAWN_ID_EXIT: u64 = 2;
 
 // Pinon heap-slot lapsi A:lle — erillään muista user-ELF:istä (slot 112).
 const SPAWN_CHILD_A_STACK_SLOT: u64 = 112;
 // Pinon heap-slot lapsi B:lle — seuraava vapaa sivu (slot 113).
 const SPAWN_CHILD_B_STACK_SLOT: u64 = 113;
+// Pinon heap-slot exit-lapselle — erillinen sivu (slot 115).
+const SPAWN_CHILD_EXIT_STACK_SLOT: u64 = 115;
 
 // Luo uusi prosessi upotetusta ELF:stä — palauttaa pid tai null.
 pub fn spawnEmbedded(id: u64) ?u64 {
@@ -34,6 +40,8 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_CHILD_A => spawn_child_a_elf,
         // Lapsi B — tulostaa "spb\n" serialiin.
         SPAWN_ID_CHILD_B => spawn_child_b_elf,
+        // Exit-lapsi — kutsuu sys_exit(42).
+        SPAWN_ID_EXIT => spawn_child_exit_elf,
         // Tuntematon tunniste.
         else => return null,
     };
@@ -43,11 +51,15 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_CHILD_A => SPAWN_CHILD_A_STACK_SLOT,
         // Lapsi B pinosivu slot 113.
         SPAWN_ID_CHILD_B => SPAWN_CHILD_B_STACK_SLOT,
+        // Exit-lapsi pinosivu slot 115.
+        SPAWN_ID_EXIT => SPAWN_CHILD_EXIT_STACK_SLOT,
         // Tuntematon tunniste.
         else => return null,
     };
     // Allokoi seuraava vapaa pid prosessitaulukosta.
     const pid = process.allocNextPid() orelse return null;
+    // Aseta vanhemmaksi nykyinen prosessi (Vaihe 24 parent/child).
+    if (!process.setParentPid(pid, process.currentPid())) return null;
     // Lataa ELF segmentit + pinosivu annettuun slottiin.
     const loaded = elf.loadElfWithStack(elf_data, stack_slot) orelse return null;
     // Tallenna entry/pino prosessitaulukkoon spawn/runProcess varten.
