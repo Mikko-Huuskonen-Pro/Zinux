@@ -20,6 +20,33 @@ test "process table alloc and current pid" {
     try std.testing.expect(!proc.setCurrentPid(99));
 }
 
+test "allocNextPid skips used pids" {
+    // Puhdas tila.
+    proc.initCore();
+    // Boot pid 1 jo rekisteröity — seuraava pitäisi olla 2.
+    const pid2 = proc.allocNextPid() orelse return error.TestFailed;
+    try std.testing.expectEqual(@as(u64, 2), pid2);
+    // Seuraava vapaa on 3 (2 jo käytössä).
+    const pid3 = proc.allocNextPid() orelse return error.TestFailed;
+    try std.testing.expectEqual(@as(u64, 3), pid3);
+}
+
+test "setLoaded and getLoadedInfo" {
+    // Puhdas tila.
+    proc.initCore();
+    // Allokoi prosessi 5.
+    try std.testing.expect(proc.allocProcess(5));
+    // Ei vielä ladattu.
+    try std.testing.expect(proc.getLoadedInfo(5) == null);
+    // Tallenna ladatut kentät.
+    try std.testing.expect(proc.setLoaded(5, 0x1000, 0x2000, 77));
+    // Hae tiedot.
+    const info = proc.getLoadedInfo(5) orelse return error.TestFailed;
+    try std.testing.expectEqual(@as(u64, 0x1000), info.entry);
+    try std.testing.expectEqual(@as(u64, 0x2000), info.stack_top);
+    try std.testing.expectEqual(@as(u64, 77), info.stack_slot);
+}
+
 test "capability slots isolated per process" {
     // Puhdas tila — prosessi 1 + capability.
     cap.initCore();

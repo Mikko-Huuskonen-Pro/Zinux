@@ -57,6 +57,8 @@ pub fn isRegistered(num: u64) bool {
         18 => true,
         // sys_ipc_queue_capacity.
         19 => true,
+        // sys_spawn.
+        20 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
@@ -100,6 +102,8 @@ pub fn isDangerous(num: u64) bool {
         18 => true,
         // sys_ipc_queue_capacity — riippuu slot-tilasta.
         19 => true,
+        // sys_spawn — luo prosesseja ja kartoittaa ELF:ää fuzzissa.
+        20 => true,
         // Muut numerot turvallisia tai ENOSYS.
         else => false,
     };

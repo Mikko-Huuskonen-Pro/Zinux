@@ -56,6 +56,9 @@ pub fn runAll() void {
     // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".
     const elf_loader = @import("loader/elf.zig");
     elf_loader.runBootTest();
+    // Vaihe 21 — sys_spawn + kaksi erillistä spawn-lasta ring 3:ssa.
+    const spawn_syscall = @import("syscall/spawn_syscall.zig");
+    spawn_syscall.runBootTest();
     // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
     const init_proc = @import("init.zig");
     init_proc.launch();

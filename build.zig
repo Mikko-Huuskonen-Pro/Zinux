@@ -491,6 +491,52 @@ pub fn build(b: *std.Build) void {
     copy_ipc_block_test_elf.addFileArg(embedded_ipc_block_test_path);
     copy_ipc_block_test_elf.step.dependOn(&ipc_block_test_exe.step);
 
+    // --- Spawn child A user-ELF (Vaihe 21) — upotetaan kerneliin ---
+    const spawn_child_a_mod = b.createModule(.{
+        .root_source_file = b.path("userland/spawn_child_a/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    spawn_child_a_mod.red_zone = false;
+    spawn_child_a_mod.stack_protector = false;
+    spawn_child_a_mod.single_threaded = true;
+    const spawn_child_a_exe = b.addExecutable(.{
+        .name = "zinux-spawn-child-a",
+        .root_module = spawn_child_a_mod,
+    });
+    spawn_child_a_exe.setLinkerScript(b.path("userland/spawn_child_a/user.ld"));
+    spawn_child_a_exe.root_module.addAssemblyFile(b.path("userland/spawn_child_a/start.S"));
+    b.installArtifact(spawn_child_a_exe);
+
+    const embedded_spawn_child_a_path = b.path("kernel/loader/spawn_child_a_prog.bin");
+    const copy_spawn_child_a_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_spawn_child_a_elf.addFileArg(spawn_child_a_exe.getEmittedBin());
+    copy_spawn_child_a_elf.addFileArg(embedded_spawn_child_a_path);
+    copy_spawn_child_a_elf.step.dependOn(&spawn_child_a_exe.step);
+
+    // --- Spawn child B user-ELF (Vaihe 21) — upotetaan kerneliin ---
+    const spawn_child_b_mod = b.createModule(.{
+        .root_source_file = b.path("userland/spawn_child_b/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    spawn_child_b_mod.red_zone = false;
+    spawn_child_b_mod.stack_protector = false;
+    spawn_child_b_mod.single_threaded = true;
+    const spawn_child_b_exe = b.addExecutable(.{
+        .name = "zinux-spawn-child-b",
+        .root_module = spawn_child_b_mod,
+    });
+    spawn_child_b_exe.setLinkerScript(b.path("userland/spawn_child_b/user.ld"));
+    spawn_child_b_exe.root_module.addAssemblyFile(b.path("userland/spawn_child_b/start.S"));
+    b.installArtifact(spawn_child_b_exe);
+
+    const embedded_spawn_child_b_path = b.path("kernel/loader/spawn_child_b_prog.bin");
+    const copy_spawn_child_b_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_spawn_child_b_elf.addFileArg(spawn_child_b_exe.getEmittedBin());
+    copy_spawn_child_b_elf.addFileArg(embedded_spawn_child_b_path);
+    copy_spawn_child_b_elf.step.dependOn(&spawn_child_b_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -518,6 +564,8 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_ipc_flush_test_elf.step);
     kernel.step.dependOn(&copy_cap_get_resource_test_elf.step);
     kernel.step.dependOn(&copy_ipc_block_test_elf.step);
+    kernel.step.dependOn(&copy_spawn_child_a_elf.step);
+    kernel.step.dependOn(&copy_spawn_child_b_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---

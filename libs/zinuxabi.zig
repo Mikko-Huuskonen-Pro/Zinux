@@ -40,6 +40,8 @@ pub const SYS_ipc_flush: u64 = 17;
 pub const SYS_cap_get_resource: u64 = 18;
 // Syscall-numero: sys_ipc_queue_capacity(slot) → portin jonon maksimisyvyys.
 pub const SYS_ipc_queue_capacity: u64 = 19;
+// Syscall-numero: sys_spawn(embedded_id) → uusi pid tai neg. virhe (Vaihe 21).
+pub const SYS_spawn: u64 = 20;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

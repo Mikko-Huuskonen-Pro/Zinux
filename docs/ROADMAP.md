@@ -373,17 +373,17 @@ zig build run
 
 ---
 
-## Vaihe 21 — Prosessin luonti (sys_spawn) ⬜
+## Vaihe 21 — Prosessin luonti (sys_spawn) ✅
 
 **Tavoite**: Kernel voi käynnistää toisen user-ELF:n omana prosessina ring 3:ssa (ELF-loader + erillinen pinokartoitus).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 21.1 | sys_spawn(elf_path stub / embedded) | `kernel/syscall/spawn_syscall.zig`, `dispatch.zig` | ⬜ Spawn syscall OK |
-| 21.2 | Toisen prosessin pinon/kartan erottelu | `loader/elf.zig`, `sched/process.zig` | ⬜ Two processes boot OK |
-| 21.3 | Userland spawn wrapper (valinnainen) | `userland/lib/spawn.zig` | ⬜ ring 3 spawn demo |
+| 21.1 | sys_spawn(elf_path stub / embedded) | `kernel/syscall/spawn_syscall.zig`, `dispatch.zig` | ✅ Spawn syscall OK |
+| 21.2 | Toisen prosessin pinon/kartan erottelu | `loader/elf.zig`, `spawn.zig`, `process_core.zig` | ✅ Two processes boot OK |
+| 21.3 | Userland spawn wrapper (valinnainen) | `userland/lib/spawn.zig` | ✅ ring 3 spawn wrapper |
 
-**Testi**: Boot lataa kaksi kevyttä testi-ELF:ää peräkkäin eri pideillä — molemmat tulostavat serialiin.
+**Testi**: Boot lataa kaksi kevyttä testi-ELF:ää peräkkäin eri pideillä — molemmat tulostavat serialiin (`spa\n`, `spb\n`).
 
 ---
 

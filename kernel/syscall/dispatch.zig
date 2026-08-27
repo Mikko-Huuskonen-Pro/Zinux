@@ -30,6 +30,8 @@ const cap = @import("../ipc/capability_core.zig");
 const cap_core = @import("cap_syscall_core.zig");
 // Tuo prosessitaulukko — current pid getpid-syscallille (Vaihe 20).
 const process = @import("process_core");
+// Tuo spawn — sys_spawn upotetuista ELF:istä (Vaihe 21).
+const spawn = @import("../spawn.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -133,6 +135,16 @@ fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
 fn sysGetpid(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Delegoi prosessitaulukon current pid:lle.
     return @intCast(process.currentPid());
+}
+
+// sys_spawn — luo uusi prosessi upotetusta ELF-tunnisteesta (Vaihe 21).
+fn sysSpawn(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Embedded ELF -tunniste (0 = lapsi A, 1 = lapsi B).
+    const embedded_id = a1;
+    // Lataa ELF uudelle pid:lle prosessitaulukkoon.
+    const pid = spawn.spawnEmbedded(embedded_id) orelse return abi.EINVAL;
+    // Palauta uuden prosessin tunniste.
+    return @intCast(pid);
 }
 
 // sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
@@ -517,6 +529,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_pending)] = sysIpcPending;
     // Rekisteröi sys_ipc_queue_capacity (portin jonon maksimisyvyys).
     table[@intCast(abi.SYS_ipc_queue_capacity)] = sysIpcQueueCapacity;
+    // Rekisteröi sys_spawn (upotettu ELF → uusi prosessi).
+    table[@intCast(abi.SYS_spawn)] = sysSpawn;
     // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
     table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
