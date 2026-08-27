@@ -164,6 +164,9 @@ pub fn runAll() void {
     // Vaihe 22 — cross-process IPC: cap transfer + send/recv eri pideillä.
     const cross_ipc_syscall = @import("syscall/cross_ipc_syscall.zig");
     cross_ipc_syscall.runBootTest();
+    // Vaihe 27.0 — cap transfer dedup + MAX_SLOTS (varhainen ajo — porttitaulukko vielä tyhjempi).
+    const cap_transfer_bounded = @import("syscall/cap_transfer_bounded_syscall.zig");
+    cap_transfer_bounded.runBootTest();
     // Vaihe 22.3 — userland cross-IPC sender/receiver ring 3:ssa.
     const cross_ipc_userland = @import("cross_ipc_userland.zig");
     cross_ipc_userland.runBootTest();
@@ -179,6 +182,13 @@ pub fn runAll() void {
     // Vaihe 26 — timer-preempt scheduler + prosessien vuorottelu.
     const preempt_syscall = @import("syscall/preempt_syscall.zig");
     preempt_syscall.runBootTest();
+    // Vaihe 27 — cross-spawn IPC userland-demo (scheduler reset ennen ring 3 -ajoja).
+    const process_scheduler = @import("sched/process_scheduler.zig");
+    process_scheduler.reset();
+    const spawn_cap_userland = @import("spawn_cap_userland.zig");
+    spawn_cap_userland.runBootTest();
+    const cross_spawn_ipc_userland = @import("cross_spawn_ipc_userland.zig");
+    cross_spawn_ipc_userland.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

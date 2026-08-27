@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **27** ⬜
+## Nykyinen vaihe: **28** ⬜
 
 **Branch**: `cursor/scheduler-preempt-4d97`  
 **PR**: https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/5  
@@ -42,11 +42,12 @@
 | 24 Prosessin elinkaari (exit/wait) | ✅ |
 | 25 Osoiteavaruudet per prosessi | ✅ |
 | 26 Scheduler + prosessit | ✅ |
+| 27 Cross-process IPC userland | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 27)
+### Tämän kierroksen prioriteetti (Vaihe 28)
 
-**Cross-process IPC userland-demo** — spawn + cap transfer + recv ilman kernel-orchestraatiota.  
-Katso `docs/ROADMAP.md` vaihe 27.
+**Capability-pohjainen mmap (`sys_mem_map`)** — memory-cap + kartoitus ring 3:een.  
+Katso `docs/ROADMAP.md` vaihe 28.
 
 ---
 

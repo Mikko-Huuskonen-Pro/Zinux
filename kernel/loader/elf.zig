@@ -137,32 +137,38 @@ fn mapUserStackAt(stack_base: u64, pml4_phys: u64) bool {
 
 // Lataa jäsennetty ELF muistiiin — pinon sivu stack_base:ssa, kohde-PML4.
 fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8, stack_base: u64, pml4_phys: u64) bool {
-    // Nykyinen CR3 — palautetaan latauksen jälkeen jos vaihdettiin.
+    // Tallenna aktiivinen CR3 — palautetaan kerneliin deferillä (Vaihe 27).
     const prev_cr3 = paging.getCr3();
     // Vaihda kohde-PML4:ään jotta @ptrFromInt(vaddr) toimii kopioinnissa.
-    if (pml4_phys != prev_cr3) paging.setCr3(pml4_phys);
+    paging.setCr3(pml4_phys);
     // Kartoita jokainen PT_LOAD-segmentti.
     var ok: bool = true;
-    if (true) {
-        // Varmista CR3 palautus defer-polulla.
-        defer if (pml4_phys != prev_cr3) paging.setCr3(prev_cr3);
-        for (parsed.segments) |seg| {
-            // Suoritettavuus PF_X-bitistä.
-            const executable = core.segmentExecutable(seg);
-            // Kartoita sivut segmentin linkitys-vaddr:iin.
-            if (!mapSegmentRange(seg.vaddr, seg.mem_size, executable, pml4_phys)) {
-                ok = false;
-                break;
-            }
-            // Kopioi tiedot ELF-blobista segmenttiin (VA aktiivisessa CR3:ssa).
-            if (!copySegmentData(seg, elf_data)) {
-                ok = false;
-                break;
-            }
+    // Varmista kernel CR3 palautus myös virhepoluilla.
+    defer {
+        if (pml4_phys != vmm.pml4Phys()) {
+            // Prosessin osoiteavaruus — palaa aina kerneliin (ei luota prev_cr3:een).
+            vmm.switchToKernel();
+        } else if (prev_cr3 != pml4_phys) {
+            // Kernel PML4 -lataus — palauta aiempi CR3.
+            paging.setCr3(prev_cr3);
         }
-        // Kartoita erillinen käyttäjäpinon sivu annettuun osoitteeseen.
-        if (ok and !mapUserStackAt(stack_base, pml4_phys)) ok = false;
     }
+    for (parsed.segments) |seg| {
+        // Suoritettavuus PF_X-bitistä.
+        const executable = core.segmentExecutable(seg);
+        // Kartoita sivut segmentin linkitys-vaddr:iin.
+        if (!mapSegmentRange(seg.vaddr, seg.mem_size, executable, pml4_phys)) {
+            ok = false;
+            break;
+        }
+        // Kopioi tiedot ELF-blobista segmenttiin (VA aktiivisessa CR3:ssa).
+        if (!copySegmentData(seg, elf_data)) {
+            ok = false;
+            break;
+        }
+    }
+    // Kartoita erillinen käyttäjäpinon sivu annettuun osoitteeseen.
+    if (ok and !mapUserStackAt(stack_base, pml4_phys)) ok = false;
     // Palauta onnistuminen.
     return ok;
 }

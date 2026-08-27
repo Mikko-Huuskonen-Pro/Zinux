@@ -363,7 +363,7 @@ PR #2 -branchin security review (vaiheet 20–22) löysi **2 medium-löydöstä*
 | ID | Severity | Sijainti | Ongelma | Korjaus | Vaihe |
 |----|----------|----------|---------|---------|-------|
 | **S1** | Medium | `dispatch.zig:506`, `capability_core.zig` | `sys_cap_create` asentaa capin **pid 1**:een, mutta slotit haetaan **`currentPid`**:llä → väärä namespace / DoS pid ≥ 2 | `createAndInstall(..., process.currentPid(), ...)` | **23.0** ✅ |
-| **S2** | Medium | `capability_core.zig:307`, `dispatch.zig:150` | `sys_cap_transfer` voi täyttää uhrin 32 slotin rajattomilla kopioilla | Deduplikointi tai siirto (ei pelkkä kopio) | **27.0** ⬜ |
+| **S2** | Medium | `capability_core.zig:307`, `dispatch.zig:150` | `sys_cap_transfer` voi täyttää uhrin 32 slotin rajattomilla kopioilla | Deduplikointi tai siirto (ei pelkkä kopio) | **27.0** ✅ |
 
 **S1 hyökkäyspolku (korjattu vaiheessa 23):** prosessi pid ≥ 2 kutsuu `sys_cap_create` → cap asentui aiemmin pid 1:een → `lookupSlot` etsii current pid:n taulukosta → slot-indeksi ei vastaa oikeaa capia / täyttää boot-prosessin slotit.
 
@@ -512,16 +512,16 @@ zig build boot-test
 
 ---
 
-## Vaihe 27 — Cross-process IPC userland-demo ⬜
+## Vaihe 27 — Cross-process IPC userland-demo ✅
 
 **Tavoite**: Userland-prosessi spawnaa toisen, siirtää recv-capabilityn, send → recv ilman kernel-orchestraatiota.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 27.0 | Security: `sys_cap_transfer` deduplikointi / siirto | `capability_core.zig` | ⬜ Cap transfer bounded OK |
-| 27.1 | `userland/lib/spawn.zig` + `cap.transfer()` demo | `userland/lib/` | ⬜ Userland spawn cap OK |
-| 27.2 | Parent spawn → transfer → child recv | `userland/cross_spawn_ipc_test/` | ⬜ Userland cross spawn IPC OK |
-| 27.3 | Boot-testi ring 3:ssa | kernel launcher + ELF | ⬜ Userland cross spawn IPC test OK |
+| 27.0 | Security: `sys_cap_transfer` deduplikointi / siirto | `capability_core.zig` | ✅ Cap transfer bounded OK |
+| 27.1 | `userland/lib/spawn.zig` + `cap.transfer()` demo | `userland/lib/` | ✅ Userland spawn cap OK |
+| 27.2 | Parent spawn → transfer → child recv | `userland/cross_spawn_ipc_test/` | ✅ Userland cross spawn IPC OK |
+| 27.3 | Boot-testi ring 3:ssa | kernel launcher + ELF | ✅ Userland cross spawn IPC test OK |
 
 **Testi**:
 ```bash

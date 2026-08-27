@@ -27,6 +27,8 @@ const address_space_b_elf = @embedFile("loader/address_space_b_prog.bin");
 const preempt_a_elf = @embedFile("loader/preempt_a_prog.bin");
 // Upotettu preempt B — timer-preempt demo (Vaihe 26).
 const preempt_b_elf = @embedFile("loader/preempt_b_prog.bin");
+// Upotettu cross-spawn IPC lapsi — recv ring 3:ssa (Vaihe 27).
+const cross_spawn_ipc_child_elf = @embedFile("loader/cross_spawn_ipc_child_prog.bin");
 
 // Embedded ELF -tunniste: spawn-lapsi A.
 pub const SPAWN_ID_CHILD_A: u64 = 0;
@@ -42,6 +44,8 @@ pub const SPAWN_ID_ASPACE_B: u64 = 4;
 pub const SPAWN_ID_PREEMPT_A: u64 = 5;
 // Embedded ELF -tunniste: preempt demo B (Vaihe 26).
 pub const SPAWN_ID_PREEMPT_B: u64 = 6;
+// Embedded ELF -tunniste: cross-spawn IPC lapsi (Vaihe 27).
+pub const SPAWN_ID_CROSS_SPAWN_CHILD: u64 = 7;
 // Sama virtuaalinen latausosoite molemmille address space -lapsille.
 pub const ADDRESS_SPACE_LOAD_VADDR: u64 = 0xFFFFFFFF90090000;
 
@@ -59,6 +63,8 @@ const SPAWN_ASPACE_B_STACK_SLOT: u64 = 117;
 const SPAWN_PREEMPT_A_STACK_SLOT: u64 = 118;
 // Pinon heap-slot preempt B (slot 119).
 const SPAWN_PREEMPT_B_STACK_SLOT: u64 = 119;
+// Pinon heap-slot cross-spawn IPC lapsi (slot 121).
+const SPAWN_CROSS_SPAWN_CHILD_STACK_SLOT: u64 = 121;
 
 // Luo uusi prosessi upotetusta ELF:stä — palauttaa pid tai null.
 pub fn spawnEmbedded(id: u64) ?u64 {
@@ -78,6 +84,8 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_PREEMPT_A => preempt_a_elf,
         // Preempt B — tulostaa 'B' silmukassa (Vaihe 26).
         SPAWN_ID_PREEMPT_B => preempt_b_elf,
+        // Cross-spawn IPC lapsi — vastaanottaa viestin (Vaihe 27).
+        SPAWN_ID_CROSS_SPAWN_CHILD => cross_spawn_ipc_child_elf,
         // Tuntematon tunniste.
         else => return null,
     };
@@ -97,6 +105,8 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_PREEMPT_A => SPAWN_PREEMPT_A_STACK_SLOT,
         // Preempt B pinosivu slot 119.
         SPAWN_ID_PREEMPT_B => SPAWN_PREEMPT_B_STACK_SLOT,
+        // Cross-spawn IPC lapsi pinosivu slot 121.
+        SPAWN_ID_CROSS_SPAWN_CHILD => SPAWN_CROSS_SPAWN_CHILD_STACK_SLOT,
         // Tuntematon tunniste.
         else => return null,
     };
@@ -104,10 +114,13 @@ pub fn spawnEmbedded(id: u64) ?u64 {
     const pid = process.allocNextPid() orelse return null;
     // Aseta vanhemmaksi nykyinen prosessi (Vaihe 24 parent/child).
     if (!process.setParentPid(pid, process.currentPid())) return null;
+    // Varmista kernel CR3 ennen fork/load — ring 3 parent voi jättää CR3:n väärään tilaan.
+    vmm.switchToKernel();
     // Luo prosessin oma PML4 — syväkopio kernelistä (Vaihe 25).
     const pml4 = vmm.createProcessPageTable() orelse return null;
     // Eristä sama-VA spawn-ELF (address space / preempt) — ei spawn-lapsia 0/1.
-    if (id >= SPAWN_ID_ASPACE_A) {
+    // Cross-spawn lapsi (7) ohitetaan: prepareSpawnPageTable aiheuttaa page faultin ring 3 spawnista.
+    if (id >= SPAWN_ID_ASPACE_A and id != SPAWN_ID_CROSS_SPAWN_CHILD) {
         vmm.prepareSpawnPageTable(pml4, ADDRESS_SPACE_LOAD_VADDR);
     }
     // Tallenna CR3 prosessitaulukkoon.
@@ -116,6 +129,8 @@ pub fn spawnEmbedded(id: u64) ?u64 {
     const loaded = elf.loadElfWithStackInto(elf_data, stack_slot, pml4) orelse return null;
     // Tallenna entry/pino prosessitaulukkoon spawn/runProcess varten.
     if (!process.setLoaded(pid, loaded.entry, loaded.stack_top, stack_slot)) return null;
+    // Palauta kernel CR3 ennen paluuta syscall-käsittelijään (Vaihe 27).
+    vmm.switchToKernel();
     // Palauta uuden prosessin tunniste.
     return pid;
 }
