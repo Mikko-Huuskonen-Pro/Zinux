@@ -132,6 +132,40 @@ The goal is not AI-generated code with unlimited privileges.
 
 The goal is AI-generated code operating inside a kernel-defined world of strict rules and limited capabilities. 
 
+## Prior Art & Inspiration
+
+Zinux does not start from the assumption that automatic device-driver
+generation is a new idea.
+
+Researchers have explored device-driver synthesis for many years.
+In particular, the Termite project demonstrated that device drivers
+could be synthesized from formal specifications, while Termite-2
+explored user-guided synthesis to address the limitations of fully
+automatic generation.
+
+Zinux is inspired by this line of research, but asks a different
+question:
+
+> Can a local AI reduce the specification burden by turning ordinary
+> hardware documentation and a task into a constrained driver plan,
+> while the kernel remains the authority over capabilities and
+> execution?
+
+The goal is not to replace or dismiss previous work.
+
+It is to continue the experiment with the tools available today.
+
+### Pioneers
+
+- **Termite / Termite-2** — device-driver synthesis and user-guided synthesis
+- **User-Guided Device Driver Synthesis** — Ryzhyk et al., OSDI 2014
+- **Driver isolation research** — Nooks, microkernel-based drivers,
+  sandboxing and related work
+
+These projects established important foundations for thinking about
+drivers as something that can be synthesized, constrained and isolated.
+
+Zinux stands on their shoulders.
 
 ```markdown
 ## Zinux 1.0 Gate
