@@ -55,6 +55,8 @@ pub fn isRegistered(num: u64) bool {
         17 => true,
         // sys_cap_get_resource.
         18 => true,
+        // sys_ipc_queue_capacity.
+        19 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
@@ -96,6 +98,8 @@ pub fn isDangerous(num: u64) bool {
         17 => true,
         // sys_cap_get_resource — riippuu slot-tilasta.
         18 => true,
+        // sys_ipc_queue_capacity — riippuu slot-tilasta.
+        19 => true,
         // Muut numerot turvallisia tai ENOSYS.
         else => false,
     };

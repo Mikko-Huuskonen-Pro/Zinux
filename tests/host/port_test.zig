@@ -77,3 +77,22 @@ test "port pending count" {
     // Tyhjä jono uudelleen.
     try std.testing.expectEqual(@as(u8, 0), port.pendingCount(id).?);
 }
+
+test "port queue capacity" {
+    // Puhdas tila.
+    port.initCore();
+    // Luo portti.
+    const id = port.createPort() orelse return error.TestFailed;
+    // Maksimijonon syvyys = MAX_QUEUE.
+    try std.testing.expectEqual(@as(u8, port.MAX_QUEUE), port.queueCapacity(id).?);
+    // Täytä jono — pending kasvaa mutta pysyy ≤ capacity.
+    var n: usize = 0;
+    while (n < port.MAX_QUEUE) : (n += 1) {
+        // Jokainen viesti mahtuu.
+        _ = try port.send(id, "x");
+    }
+    // Jono täynnä.
+    try std.testing.expectEqual(@as(u8, port.MAX_QUEUE), port.pendingCount(id).?);
+    // Kapasiteetti ei muutu.
+    try std.testing.expectEqual(@as(u8, port.MAX_QUEUE), port.queueCapacity(id).?);
+}

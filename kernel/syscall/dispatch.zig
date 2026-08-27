@@ -334,6 +334,16 @@ fn sysIpcFlush(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(flushed);
 }
 
+// sys_ipc_queue_capacity — palauta capability-slotin portin jonon maksimisyvyys.
+fn sysIpcQueueCapacity(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae jonon kapasiteetti recv-oikeudella varustetusta slotista.
+    const cap_val = port.queueCapacityViaSlot(slot_idx) catch |err| return ipc_core.mapPortError(err);
+    // Palauta maksimijonon syvyys (MAX_QUEUE).
+    return @intCast(cap_val);
+}
+
 // sys_ipc_pending — palauta capability-slotin portin jonossa olevien viestien määrä.
 fn sysIpcPending(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Capability-slott indeksi.
@@ -503,6 +513,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_try_recv)] = sysIpcTryRecv;
     // Rekisteröi sys_ipc_pending (jonossa olevien viestien määrä).
     table[@intCast(abi.SYS_ipc_pending)] = sysIpcPending;
+    // Rekisteröi sys_ipc_queue_capacity (portin jonon maksimisyvyys).
+    table[@intCast(abi.SYS_ipc_queue_capacity)] = sysIpcQueueCapacity;
     // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
     table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).

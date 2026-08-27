@@ -182,6 +182,16 @@ pub fn pendingCount(port_id: u32) ?u8 {
     return p.count;
 }
 
+// Palauta portin viestijonon maksimisyvyys (vakio MAX_QUEUE).
+pub fn queueCapacity(port_id: u32) ?u8 {
+    // Vaadi alustus.
+    if (!initialized) return null;
+    // Portin pitää olla olemassa.
+    if (getPort(port_id) == null) return null;
+    // Kiinteä rengasjonon koko kaikille porteille.
+    return MAX_QUEUE;
+}
+
 // Tyhjennä portin viestijono poistamatta porttia — palauttaa poistettujen viestien määrä.
 pub fn flushQueue(port_id: u32) PortError!u8 {
     // Vaadi alustus.

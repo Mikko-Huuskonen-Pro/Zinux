@@ -335,21 +335,21 @@ zig build run
 
 | Vaihe | Teema | Tavoite |
 |-------|-------|---------|
-| **19** | IPC jonon kapasiteetti | `pending` / `flush` -kolmikon täydennys |
+| **19** | IPC jonon kapasiteetti | `pending` / `flush` / `queueCapacity` introspection trio | ✅ |
 | **20** | Prosessitaulukko | Erilliset capability-slotit per pid |
 | **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) |
 | **22** | Cross-process IPC | Viesti prosessista A → prosessiin B |
 
 ---
 
-## Vaihe 19 — IPC jonon kapasiteetti ⬜
+## Vaihe 19 — IPC jonon kapasiteetti ✅
 
 **Tavoite**: Ring 3 voi kysyä capability-slotin portin maksimijonon syvyyttä `sys_ipc_queue_capacity`-syscallilla (täydentää `pending` + `flush`).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 19.1 | sys_ipc_queue_capacity | `dispatch.zig`, `port_core.zig`, `ipc_queue_capacity_syscall.zig` | ⬜ invoke + IPC queue capacity syscall OK |
-| 19.2 | Userland ipc.queueCapacity | `userland/lib/ipc.zig`, `userland/ipc_queue_capacity_test/` | ⬜ userland ipc queue capacity OK |
+| 19.1 | sys_ipc_queue_capacity | `dispatch.zig`, `port_core.zig`, `ipc_queue_capacity_syscall.zig` | ✅ invoke + IPC queue capacity syscall OK |
+| 19.2 | Userland ipc.queueCapacity | `userland/lib/ipc.zig`, `userland/ipc_queue_capacity_test/` | ✅ userland ipc queue capacity OK |
 
 **Testi**:
 ```bash

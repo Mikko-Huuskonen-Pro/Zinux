@@ -6,6 +6,8 @@
 
 // Yhden IPC-viestin max-pituus — sama kuin kernel port_core.MAX_MSG_SIZE.
 pub const MAX_MSG_SIZE: usize = 32;
+// Portin viestijonon maksimisyvyys — sama kuin kernel port_core.MAX_QUEUE.
+pub const MAX_QUEUE: usize = 4;
 // EBADF — huono capability-slotti tai portti.
 pub const EBADF: i64 = -9;
 // EAGAIN — tyhjä tai täysi jono.

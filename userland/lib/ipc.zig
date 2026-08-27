@@ -17,8 +17,12 @@ pub const SYS_ipc_try_recv: u64 = 9;
 pub const SYS_ipc_pending: u64 = 14;
 // Syscall-numero: sys_ipc_flush(slot) — poistettujen viestien määrä.
 pub const SYS_ipc_flush: u64 = 17;
+// Syscall-numero: sys_ipc_queue_capacity(slot) — portin jonon maksimisyvyys.
+pub const SYS_ipc_queue_capacity: u64 = 19;
 // Uudelleenexportoi max-viestikoko.
 pub const MAX_MSG_SIZE = core.MAX_MSG_SIZE;
+// Uudelleenexportoi jonon maksimisyvyys.
+pub const MAX_QUEUE = core.MAX_QUEUE;
 
 // IPC-kirjaston virheet — negatiiviset syscall-palut muunnetaan näiksi.
 pub const IpcError = error{
@@ -101,6 +105,16 @@ fn sysIpcFlush(slot: u32) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_ipc_queue_capacity — palauttaa portin jonon maksimisyvyyden.
+fn sysIpcQueueCapacity(slot: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_ipc_queue_capacity),
+          [slot] "{rdi}" (@as(u64, slot)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Lähetä viesti capability-slotin kautta — palauttaa lähetettyjen tavujen määrä.
 pub fn send(slot: u32, payload: []const u8) IpcError!usize {
     // Tarkista pituus ennen syscallia.
@@ -154,5 +168,15 @@ pub fn flush(slot: u32) IpcError!u8 {
     // Negatiivinen → virhe.
     if (core.isError(ret)) return mapSyscallError(ret);
     // Palauta poistettujen viestien määrä.
+    return @intCast(ret);
+}
+
+// Kysy capability-slotin portin viestijonon maksimisyvyys.
+pub fn queueCapacity(slot: u32) IpcError!u8 {
+    // Kutsu kerneliä — vaatii recv-oikeuden slotissa.
+    const ret = sysIpcQueueCapacity(slot);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
+    // Palauta maksimijonon syvyys.
     return @intCast(ret);
 }
