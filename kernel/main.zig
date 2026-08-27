@@ -137,6 +137,9 @@ fn kmain() noreturn {
     // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
     const cap_audit = @import("ipc/cap_audit.zig");
     cap_audit.runBootTest();
+    // Vaihe 7.5 — syscall dispatch -fuzz (ENOSYS tuntemattomille).
+    const syscall_fuzz = @import("syscall/syscall_fuzz.zig");
+    syscall_fuzz.runBootTest();
     // Ota SMEP/SMAP käyttöön ennen ring 3 -testejä (Vaihe 7.1).
     hardening.init();
     // Vahvista SMEP/SMAP aktivointi.

@@ -70,3 +70,8 @@ test {
 test {
     _ = @import("cap_audit_test.zig");
 }
+
+// Tuo syscall-fuzz-ydin-yksikkötestit.
+test {
+    _ = @import("syscall_fuzz_test.zig");
+}

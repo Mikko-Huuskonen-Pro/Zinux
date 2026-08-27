@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **7** (Turvallisuus & kovennus) ⬜
+## Nykyinen vaihe: **8** (ei vielä ROADMAPissa) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -22,22 +22,11 @@
 | 4 Syscalls & IPC | ✅ |
 | 5 Käyttäjätila | ✅ |
 | 6 Ajurit & tiedostojärjestelmä | ✅ |
+| 7 Turvallisuus & kovennus | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 7)
+### Tämän kierroksen prioriteetti (Vaihe 8)
 
-Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
-
-1. ~~**7.1** SMEP/SMAP aktivointi~~ ✅
-2. ~~**7.2** Stack canaries kernelissä~~ ✅
-3. ~~**7.3** KASLR (satunnainen kernel-base)~~ ✅
-4. ~~**7.4** Capability-audit logging~~ ✅
-5. **7.5** Fuzzing: syscall-rajapinta
-
----
-
-## Seuraava vaihe kun 7 on ✅: **8** (ei vielä ROADMAPissa — jatka ROADMAP.md)
-
-Katso `docs/ROADMAP.md` — seuraa Vaihe 7 -kohtia.
+Katso `docs/ROADMAP.md` — seuraava vaihe määritellään sinne.
 
 ---
 
