@@ -40,3 +40,8 @@ test {
 test {
     _ = @import("vfs_test.zig");
 }
+
+// Tuo tmpfs-ydin-yksikkötestit.
+test {
+    _ = @import("tmpfs_test.zig");
+}

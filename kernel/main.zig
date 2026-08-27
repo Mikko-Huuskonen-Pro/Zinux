@@ -156,6 +156,9 @@ fn kmain() noreturn {
     // Vaihe 6.3 — VFS-rajapinta (mount + open/read/close).
     const vfs = @import("fs/vfs.zig");
     vfs.runBootTest();
+    // Vaihe 6.4 — tmpfs RAM-tiedostojärjestelmä mount /tmp.
+    const tmpfs = @import("fs/tmpfs.zig");
+    tmpfs.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).
