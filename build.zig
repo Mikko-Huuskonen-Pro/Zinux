@@ -210,6 +210,11 @@ pub fn build(b: *std.Build) void {
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
     cap_lib_mod.addImport("cap_core", cap_core_user_mod);
+    const spawn_lib_mod = b.createModule(.{
+        .root_source_file = b.path("userland/lib/spawn.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
     const cap_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/cap_test/main.zig"),
         .target = target,
@@ -560,6 +565,98 @@ pub fn build(b: *std.Build) void {
     copy_spawn_child_exit_elf.addFileArg(embedded_spawn_child_exit_path);
     copy_spawn_child_exit_elf.step.dependOn(&spawn_child_exit_exe.step);
 
+    // --- Address space A user-ELF (Vaihe 25) — upotetaan kerneliin ---
+    const address_space_a_mod = b.createModule(.{
+        .root_source_file = b.path("userland/address_space_a/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    address_space_a_mod.red_zone = false;
+    address_space_a_mod.stack_protector = false;
+    address_space_a_mod.single_threaded = true;
+    const address_space_a_exe = b.addExecutable(.{
+        .name = "zinux-address-space-a",
+        .root_module = address_space_a_mod,
+    });
+    address_space_a_exe.setLinkerScript(b.path("userland/address_space_a/user.ld"));
+    address_space_a_exe.root_module.addAssemblyFile(b.path("userland/address_space_a/start.S"));
+    b.installArtifact(address_space_a_exe);
+
+    const embedded_address_space_a_path = b.path("kernel/loader/address_space_a_prog.bin");
+    const copy_address_space_a_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_address_space_a_elf.addFileArg(address_space_a_exe.getEmittedBin());
+    copy_address_space_a_elf.addFileArg(embedded_address_space_a_path);
+    copy_address_space_a_elf.step.dependOn(&address_space_a_exe.step);
+
+    // --- Address space B user-ELF (Vaihe 25) — upotetaan kerneliin ---
+    const address_space_b_mod = b.createModule(.{
+        .root_source_file = b.path("userland/address_space_b/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    address_space_b_mod.red_zone = false;
+    address_space_b_mod.stack_protector = false;
+    address_space_b_mod.single_threaded = true;
+    const address_space_b_exe = b.addExecutable(.{
+        .name = "zinux-address-space-b",
+        .root_module = address_space_b_mod,
+    });
+    address_space_b_exe.setLinkerScript(b.path("userland/address_space_b/user.ld"));
+    address_space_b_exe.root_module.addAssemblyFile(b.path("userland/address_space_b/start.S"));
+    b.installArtifact(address_space_b_exe);
+
+    const embedded_address_space_b_path = b.path("kernel/loader/address_space_b_prog.bin");
+    const copy_address_space_b_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_address_space_b_elf.addFileArg(address_space_b_exe.getEmittedBin());
+    copy_address_space_b_elf.addFileArg(embedded_address_space_b_path);
+    copy_address_space_b_elf.step.dependOn(&address_space_b_exe.step);
+
+    // --- Preempt A user-ELF (Vaihe 26) — upotetaan kerneliin ---
+    const preempt_a_mod = b.createModule(.{
+        .root_source_file = b.path("userland/preempt_a/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    preempt_a_mod.red_zone = false;
+    preempt_a_mod.stack_protector = false;
+    preempt_a_mod.single_threaded = true;
+    const preempt_a_exe = b.addExecutable(.{
+        .name = "zinux-preempt-a",
+        .root_module = preempt_a_mod,
+    });
+    preempt_a_exe.setLinkerScript(b.path("userland/preempt_a/user.ld"));
+    preempt_a_exe.root_module.addAssemblyFile(b.path("userland/preempt_a/start.S"));
+    b.installArtifact(preempt_a_exe);
+
+    const embedded_preempt_a_path = b.path("kernel/loader/preempt_a_prog.bin");
+    const copy_preempt_a_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_preempt_a_elf.addFileArg(preempt_a_exe.getEmittedBin());
+    copy_preempt_a_elf.addFileArg(embedded_preempt_a_path);
+    copy_preempt_a_elf.step.dependOn(&preempt_a_exe.step);
+
+    // --- Preempt B user-ELF (Vaihe 26) — upotetaan kerneliin ---
+    const preempt_b_mod = b.createModule(.{
+        .root_source_file = b.path("userland/preempt_b/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    preempt_b_mod.red_zone = false;
+    preempt_b_mod.stack_protector = false;
+    preempt_b_mod.single_threaded = true;
+    const preempt_b_exe = b.addExecutable(.{
+        .name = "zinux-preempt-b",
+        .root_module = preempt_b_mod,
+    });
+    preempt_b_exe.setLinkerScript(b.path("userland/preempt_b/user.ld"));
+    preempt_b_exe.root_module.addAssemblyFile(b.path("userland/preempt_b/start.S"));
+    b.installArtifact(preempt_b_exe);
+
+    const embedded_preempt_b_path = b.path("kernel/loader/preempt_b_prog.bin");
+    const copy_preempt_b_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_preempt_b_elf.addFileArg(preempt_b_exe.getEmittedBin());
+    copy_preempt_b_elf.addFileArg(embedded_preempt_b_path);
+    copy_preempt_b_elf.step.dependOn(&preempt_b_exe.step);
+
     // --- Cross-IPC userland test ELF (Vaihe 22.3) — upotetaan kerneliin ---
     const cross_ipc_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/cross_ipc_test/main.zig"),
@@ -584,6 +681,84 @@ pub fn build(b: *std.Build) void {
     copy_cross_ipc_test_elf.addFileArg(cross_ipc_test_exe.getEmittedBin());
     copy_cross_ipc_test_elf.addFileArg(embedded_cross_ipc_test_path);
     copy_cross_ipc_test_elf.step.dependOn(&cross_ipc_test_exe.step);
+
+    // --- Spawn cap userland test ELF (Vaihe 27.1) — upotetaan kerneliin ---
+    const spawn_cap_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/spawn_cap_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    spawn_cap_test_mod.red_zone = false;
+    spawn_cap_test_mod.stack_protector = false;
+    spawn_cap_test_mod.single_threaded = true;
+    spawn_cap_test_mod.code_model = .large;
+    spawn_cap_test_mod.addImport("cap", cap_lib_mod);
+    spawn_cap_test_mod.addImport("spawn", spawn_lib_mod);
+    const spawn_cap_test_exe = b.addExecutable(.{
+        .name = "zinux-spawn-cap-test",
+        .root_module = spawn_cap_test_mod,
+    });
+    spawn_cap_test_exe.setLinkerScript(b.path("userland/spawn_cap_test/user.ld"));
+    spawn_cap_test_exe.root_module.addAssemblyFile(b.path("userland/spawn_cap_test/start.S"));
+    b.installArtifact(spawn_cap_test_exe);
+
+    const embedded_spawn_cap_test_path = b.path("kernel/loader/spawn_cap_test_prog.bin");
+    const copy_spawn_cap_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_spawn_cap_test_elf.addFileArg(spawn_cap_test_exe.getEmittedBin());
+    copy_spawn_cap_test_elf.addFileArg(embedded_spawn_cap_test_path);
+    copy_spawn_cap_test_elf.step.dependOn(&spawn_cap_test_exe.step);
+
+    // --- Cross-spawn IPC parent ELF (Vaihe 27.2) — upotetaan kerneliin ---
+    const cross_spawn_ipc_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/cross_spawn_ipc_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    cross_spawn_ipc_test_mod.red_zone = false;
+    cross_spawn_ipc_test_mod.stack_protector = false;
+    cross_spawn_ipc_test_mod.single_threaded = true;
+    cross_spawn_ipc_test_mod.code_model = .large;
+    cross_spawn_ipc_test_mod.addImport("cap", cap_lib_mod);
+    cross_spawn_ipc_test_mod.addImport("spawn", spawn_lib_mod);
+    cross_spawn_ipc_test_mod.addImport("ipc", ipc_lib_mod);
+    const cross_spawn_ipc_test_exe = b.addExecutable(.{
+        .name = "zinux-cross-spawn-ipc-test",
+        .root_module = cross_spawn_ipc_test_mod,
+    });
+    cross_spawn_ipc_test_exe.setLinkerScript(b.path("userland/cross_spawn_ipc_test/user.ld"));
+    cross_spawn_ipc_test_exe.root_module.addAssemblyFile(b.path("userland/cross_spawn_ipc_test/start.S"));
+    b.installArtifact(cross_spawn_ipc_test_exe);
+
+    const embedded_cross_spawn_ipc_test_path = b.path("kernel/loader/cross_spawn_ipc_test_prog.bin");
+    const copy_cross_spawn_ipc_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_cross_spawn_ipc_test_elf.addFileArg(cross_spawn_ipc_test_exe.getEmittedBin());
+    copy_cross_spawn_ipc_test_elf.addFileArg(embedded_cross_spawn_ipc_test_path);
+    copy_cross_spawn_ipc_test_elf.step.dependOn(&cross_spawn_ipc_test_exe.step);
+
+    // --- Cross-spawn IPC child ELF (Vaihe 27.2) — upotetaan kerneliin ---
+    const cross_spawn_ipc_child_mod = b.createModule(.{
+        .root_source_file = b.path("userland/cross_spawn_ipc_child/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    cross_spawn_ipc_child_mod.red_zone = false;
+    cross_spawn_ipc_child_mod.stack_protector = false;
+    cross_spawn_ipc_child_mod.single_threaded = true;
+    cross_spawn_ipc_child_mod.code_model = .large;
+    cross_spawn_ipc_child_mod.addImport("ipc", ipc_lib_mod);
+    const cross_spawn_ipc_child_exe = b.addExecutable(.{
+        .name = "zinux-cross-spawn-ipc-child",
+        .root_module = cross_spawn_ipc_child_mod,
+    });
+    cross_spawn_ipc_child_exe.setLinkerScript(b.path("userland/cross_spawn_ipc_child/user.ld"));
+    cross_spawn_ipc_child_exe.root_module.addAssemblyFile(b.path("userland/cross_spawn_ipc_child/start.S"));
+    b.installArtifact(cross_spawn_ipc_child_exe);
+
+    const embedded_cross_spawn_ipc_child_path = b.path("kernel/loader/cross_spawn_ipc_child_prog.bin");
+    const copy_cross_spawn_ipc_child_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_cross_spawn_ipc_child_elf.addFileArg(cross_spawn_ipc_child_exe.getEmittedBin());
+    copy_cross_spawn_ipc_child_elf.addFileArg(embedded_cross_spawn_ipc_child_path);
+    copy_cross_spawn_ipc_child_elf.step.dependOn(&cross_spawn_ipc_child_exe.step);
 
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
@@ -615,7 +790,14 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_spawn_child_a_elf.step);
     kernel.step.dependOn(&copy_spawn_child_b_elf.step);
     kernel.step.dependOn(&copy_spawn_child_exit_elf.step);
+    kernel.step.dependOn(&copy_address_space_a_elf.step);
+    kernel.step.dependOn(&copy_address_space_b_elf.step);
+    kernel.step.dependOn(&copy_preempt_a_elf.step);
+    kernel.step.dependOn(&copy_preempt_b_elf.step);
     kernel.step.dependOn(&copy_cross_ipc_test_elf.step);
+    kernel.step.dependOn(&copy_spawn_cap_test_elf.step);
+    kernel.step.dependOn(&copy_cross_spawn_ipc_test_elf.step);
+    kernel.step.dependOn(&copy_cross_spawn_ipc_child_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---

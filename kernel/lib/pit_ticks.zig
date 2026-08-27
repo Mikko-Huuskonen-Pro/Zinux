@@ -33,6 +33,15 @@ export fn timerOnIrqC() callconv(.c) void {
     }
 }
 
+// Timer IRQ wrapper — tallennettu kehys + tick + prosessien preempt (Vaihe 26).
+export fn timerIrqHandlerC(frame: *anyopaque) callconv(.c) void {
+    // PIT tick + IPC wake (Phase 3).
+    timerOnIrqC();
+    // Prosessien timer-preempt — muokkaa kehystä jos aktiivinen.
+    const process_scheduler = @import("../sched/process_scheduler.zig");
+    process_scheduler.onTimerIrq(frame);
+}
+
 // Onko milestone saavutettu (diagnostiikka).
 pub fn isReady() bool {
     // Muistiesto — näe IRQ-päivitykset.

@@ -9,7 +9,7 @@ pub const MAX_MSG_SIZE: usize = 32;
 // Jonon syvyys viestejä per portti.
 pub const MAX_QUEUE: usize = 4;
 // Maksimi porttien määrä kernelissä.
-pub const MAX_PORTS: usize = 32;
+pub const MAX_PORTS: usize = 64;
 
 // Yksittäinen viesti portin jonossa.
 pub const Message = struct {

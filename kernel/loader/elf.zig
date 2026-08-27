@@ -43,28 +43,41 @@ const USER_RW_FLAGS = paging.PageFlags{
     .user = 1,
 };
 
-// Kartoita yksi 4 KiB sivu segmentille — älä ylikirjoita jo kartoitettua sivua.
-fn mapUserPage(virt: u64, executable: bool) bool {
+// Kartoita yksi 4 KiB sivu segmentille — prosessille aina uusi kehys jos ei vielä kartoitettu.
+fn mapUserPage(virt: u64, executable: bool, pml4_phys: u64) bool {
+    // Tarkista onko sivu jo kartoitettu tässä latauksessa / kernelissä.
+    const already = paging.getPteRaw(pml4_phys, vmm.hhdm(), virt) != null;
+    // Prosessin osoiteavaruus — uusi PMM-kehys (prepareSpawnPageTable tyhjensi jaetun PT:n).
+    if (pml4_phys != vmm.pml4Phys()) {
+        if (!already) {
+            if (!vmm.mapNewUserPageEnsureFor(pml4_phys, virt, USER_RW_FLAGS)) return false;
+        }
+        if (executable) {
+            return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, true);
+        }
+        return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, false);
+    }
+    // Kernel PML4 — alkuperäinen polku.
     // Tarkista onko sivu jo kartoitettu (useat PT_LOAD samalla sivulla).
-    const already = paging.getPteRaw(vmm.pml4Phys(), vmm.hhdm(), virt) != null;
+    // const already yllä
     // Uusi sivu — allokoi PMM:stä ja kartoita writable latausta varten.
     if (!already) {
-        if (!vmm.mapNewUserPageEnsure(virt, USER_RW_FLAGS)) return false;
+        if (!vmm.mapNewUserPageEnsureFor(pml4_phys, virt, USER_RW_FLAGS)) return false;
     }
     // Suoritettava segmentti samalla sivulla — varmista NX pois.
     if (executable) {
-        return paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), virt, true);
+        return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, true);
     }
     // Ensimmäinen ei-suoritettava kartoitus — aseta user-bitti.
     if (!already) {
-        return paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), virt, false);
+        return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, false);
     }
     // Sivu jo olemassa (esim. .text + .rodata) — säilytä olemassa oleva kartoitus.
     return true;
 }
 
 // Kartoita [vaddr, vaddr+mem_size) sivu kerrallaan.
-fn mapSegmentRange(vaddr: u64, mem_size: u64, executable: bool) bool {
+fn mapSegmentRange(vaddr: u64, mem_size: u64, executable: bool, pml4_phys: u64) bool {
     // Sivun koko x86_64:ssa.
     const page_size = paging.PAGE_SIZE;
     // Ensimmäinen sivu alueen alussa (tasattu alaspäin).
@@ -72,11 +85,9 @@ fn mapSegmentRange(vaddr: u64, mem_size: u64, executable: bool) bool {
     // Alueen yläraja (exclusive).
     const end = vaddr + mem_size;
     // Käy jokainen sivu alueella.
-    while (page < end) {
-        // Kartoita yksi sivu.
-        if (!mapUserPage(page, executable)) return false;
-        // Seuraava sivu.
-        page += page_size;
+    while (page < end) : (page += page_size) {
+        // Kartoita yksi sivu kohde-PML4:ään.
+        if (!mapUserPage(page, executable, pml4_phys)) return false;
     }
     // Kaikki sivut kartoitettu.
     return true;
@@ -119,38 +130,59 @@ fn stackTopForSlot(stack_slot: u64) u64 {
 }
 
 // Kartoita käyttäjäpinon yksi sivu annettuun osoitteeseen.
-fn mapUserStackAt(stack_base: u64) bool {
+fn mapUserStackAt(stack_base: u64, pml4_phys: u64) bool {
     // Kartoita pinosivu (writable, ei executable).
-    return mapUserPage(stack_base, false);
+    return mapUserPage(stack_base, false, pml4_phys);
 }
 
-// Lataa jäsennetty ELF muistiiin — pinon sivu stack_base:ssa.
-fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8, stack_base: u64) bool {
+// Lataa jäsennetty ELF muistiiin — pinon sivu stack_base:ssa, kohde-PML4.
+fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8, stack_base: u64, pml4_phys: u64) bool {
+    // Tallenna aktiivinen CR3 — palautetaan kerneliin deferillä (Vaihe 27).
+    const prev_cr3 = paging.getCr3();
+    // Vaihda kohde-PML4:ään jotta @ptrFromInt(vaddr) toimii kopioinnissa.
+    paging.setCr3(pml4_phys);
     // Kartoita jokainen PT_LOAD-segmentti.
+    var ok: bool = true;
+    // Varmista kernel CR3 palautus myös virhepoluilla.
+    defer {
+        if (pml4_phys != vmm.pml4Phys()) {
+            // Prosessin osoiteavaruus — palaa aina kerneliin (ei luota prev_cr3:een).
+            vmm.switchToKernel();
+        } else if (prev_cr3 != pml4_phys) {
+            // Kernel PML4 -lataus — palauta aiempi CR3.
+            paging.setCr3(prev_cr3);
+        }
+    }
     for (parsed.segments) |seg| {
         // Suoritettavuus PF_X-bitistä.
         const executable = core.segmentExecutable(seg);
         // Kartoita sivut segmentin linkitys-vaddr:iin.
-        if (!mapSegmentRange(seg.vaddr, seg.mem_size, executable)) return false;
-        // Kopioi tiedot ELF-blobista segmenttiin.
-        if (!copySegmentData(seg, elf_data)) return false;
+        if (!mapSegmentRange(seg.vaddr, seg.mem_size, executable, pml4_phys)) {
+            ok = false;
+            break;
+        }
+        // Kopioi tiedot ELF-blobista segmenttiin (VA aktiivisessa CR3:ssa).
+        if (!copySegmentData(seg, elf_data)) {
+            ok = false;
+            break;
+        }
     }
     // Kartoita erillinen käyttäjäpinon sivu annettuun osoitteeseen.
-    if (!mapUserStackAt(stack_base)) return false;
-    // Kaikki segmentit + pino valmiina.
-    return true;
+    if (ok and !mapUserStackAt(stack_base, pml4_phys)) ok = false;
+    // Palauta onnistuminen.
+    return ok;
 }
 
 // Lataa ELF blobista — jäsentää, kartoittaa ja palauttaa entry + stack_top.
-pub fn loadElfWithStack(elf_data: []const u8, stack_slot: u64) ?LoadedImage {
+pub fn loadElfWithStackInto(elf_data: []const u8, stack_slot: u64, pml4_phys: u64) ?LoadedImage {
     // Segmenttipuskuri parseElf:lle.
     var segments: [core.MAX_LOAD_SEGMENTS]core.LoadSegment = undefined;
     // Jäsennä ELF-otsikko ja PT_LOAD:t.
     const parsed = core.parseElf(elf_data, &segments) catch return null;
     // Pinon sivun alku valitusta slotista.
     const stack_base = stackBaseForSlot(stack_slot);
-    // Kartoita segmentit ja pino.
-    if (!loadParsed(parsed, elf_data, stack_base)) return null;
+    // Kartoita segmentit ja pino prosessin tai kernelin PML4:ään.
+    if (!loadParsed(parsed, elf_data, stack_base, pml4_phys)) return null;
     // Palauta hyppypiste ja pinon yläreuna (slidattu entry).
     return .{
         .entry = parsed.entry,
@@ -158,9 +190,15 @@ pub fn loadElfWithStack(elf_data: []const u8, stack_slot: u64) ?LoadedImage {
     };
 }
 
-// Lataa ELF blobista — oletuspino (loader-testi slot 33).
+// Lataa ELF kernelin jaettuun PML4:ään (Vaihe 5–24 boot-testit).
+pub fn loadElfWithStack(elf_data: []const u8, stack_slot: u64) ?LoadedImage {
+    // Delegoi kernel PML4:ään.
+    return loadElfWithStackInto(elf_data, stack_slot, vmm.pml4Phys());
+}
+
+// Lataa ELF blobista — oletuspino ja kernel PML4 (legacy boot-testit).
 pub fn loadElf(elf_data: []const u8) ?LoadedImage {
-    // Delegoi stack_slot-parametrilla.
+    // Delegoi stack_slot + kernel PML4.
     return loadElfWithStack(elf_data, LOADER_TEST_STACK_SLOT);
 }
 

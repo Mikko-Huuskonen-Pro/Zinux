@@ -134,3 +134,25 @@ test "transfer slot to another process" {
     try std.testing.expect(cap.setCurrentProcess(2));
     try std.testing.expect(cap.transferSlotToPid(slot_c, 3, .{ .recv = true }) == null);
 }
+
+test "transfer deduplicates same object in dest" {
+    // Puhdas tila — prosessit 2 ja 3.
+    cap.initCore();
+    try std.testing.expect(cap.registerProcess(2));
+    try std.testing.expect(cap.registerProcess(3));
+    // Luo portti prosessille 2 grant-oikeuksilla.
+    const slot_a = cap.createAndInstall(.port, 2, 50, .{
+        .grant = true,
+        .read = true,
+        .recv = true,
+    }) orelse return error.TestFailed;
+    try std.testing.expect(cap.setCurrentProcess(2));
+    // Ensimmäinen siirto — uusi slotti prosessille 3.
+    const slot_b1 = cap.transferSlotToPid(slot_a, 3, .{ .recv = true, .read = true }) orelse return error.TestFailed;
+    try std.testing.expectEqual(@as(u32, 0), slot_b1);
+    // Toinen siirto sama objekti — dedup palauttaa saman slotin.
+    const slot_b2 = cap.transferSlotToPid(slot_a, 3, .{ .recv = true, .read = true }) orelse return error.TestFailed;
+    try std.testing.expectEqual(slot_b1, slot_b2);
+    // Prosessilla 3 vain yksi slotti.
+    try std.testing.expectEqual(@as(u32, 1), cap.slotCountForPid(3).?);
+}

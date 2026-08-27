@@ -235,6 +235,28 @@ pub fn installSlot(object_id: u32, rights: Rights) ?u32 {
     return installSlotForPid(process.currentPid(), object_id, rights);
 }
 
+// Laske prosessin capability-slottien määrä — null jos pid tuntematon.
+pub fn slotCountForPid(pid: u64) ?u32 {
+    // Hae prosessin taulukkoindeksi.
+    const proc_idx = process.findIndex(pid) orelse return null;
+    // Palauta aktiivisten slottien laskuri.
+    return @intCast(slot_counts[proc_idx]);
+}
+
+// Etsi slotti joka viittaa annettuun objektiin — deduplikointi transferissa (Vaihe 27).
+pub fn findSlotForObjectInPid(pid: u64, object_id: u32) ?u32 {
+    // Hae prosessin taulukkoindeksi.
+    const proc_idx = process.findIndex(pid) orelse return null;
+    // Käy prosessin slotit läpi.
+    var si: usize = 0;
+    while (si < slot_counts[proc_idx]) : (si += 1) {
+        // Sama objektiviite → palauta olemassa oleva slotti.
+        if (slots[proc_idx][si].object_id == object_id) return @intCast(si);
+    }
+    // Ei löytynyt.
+    return null;
+}
+
 // Hae capability-slotti annetulta prosessilta.
 pub fn lookupSlotForPid(pid: u64, slot_idx: u32) ?CapRef {
     // Vaadi alustus.
@@ -313,6 +335,8 @@ pub fn transferSlotToPid(src_slot: u32, dest_pid: u64, new_rights: Rights) ?u32 
     if (!rightsSubset(src.rights, new_rights)) return null;
     // Kohdeprosessi pitää olla rekisteröity taulukossa.
     if (process.findIndex(dest_pid) == null) return null;
+    // Deduplikointi — älä täytä uhrin slottitaulukkoa samalla objektilla (Vaihe 27 S2).
+    if (findSlotForObjectInPid(dest_pid, src.object_id)) |existing| return existing;
     // Asenna sama objekti kohdeprosessin slottiin annetuilla oikeuksilla.
     const derived = installSlotForPid(dest_pid, src.object_id, new_rights) orelse return null;
     // Hae objekti audit-merkintää varten.

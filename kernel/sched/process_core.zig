@@ -7,7 +7,7 @@
 // Boot/init-prosessin oletus-pid (stub userland ennen spawnia).
 pub const BOOT_PID: u64 = 1;
 // Maksimi prosessien määrä kernelin taulukossa.
-pub const MAX_PROCESSES: usize = 16;
+pub const MAX_PROCESSES: usize = 32;
 // Ei vanhempaa — boot-prosessin parent_pid (Vaihe 24 wait).
 pub const NO_PARENT: u64 = 0;
 
@@ -39,6 +39,8 @@ pub const Process = struct {
     parent_pid: u64,
     // sys_exit status-koodi zombie-tilassa (Vaihe 24).
     exit_code: u32,
+    // Prosessin PML4 fyysinen osoite — 0 = kernelin jaettu CR3 (Vaihe 25).
+    page_table: u64,
 };
 
 // Ladatun prosessin suoritustiedot — runProcess/spawn.
@@ -82,6 +84,8 @@ pub fn initCore() void {
         p.parent_pid = NO_PARENT;
         // Ei exit-koodia ennen sys_exit.
         p.exit_code = 0;
+        // Ei omaa sivutaulua oletuksena.
+        p.page_table = 0;
     }
     // Ei rekisteröityjä prosesseja.
     used_count = 0;
@@ -124,6 +128,7 @@ pub fn allocProcess(pid: u64) bool {
             .state = .running,
             .parent_pid = NO_PARENT,
             .exit_code = 0,
+            .page_table = 0,
         };
         // Yksi prosessi rekisteröity.
         used_count = 1;
@@ -147,6 +152,7 @@ pub fn allocProcess(pid: u64) bool {
         .state = .running,
         .parent_pid = NO_PARENT,
         .exit_code = 0,
+        .page_table = 0,
     };
     // Kasvata lukumäärää.
     used_count += 1;
@@ -319,4 +325,32 @@ pub fn reapZombie(pid: u64) bool {
     // Säilytä zombie-tila ja exit_code wait-vastauksen jälkeen (ei poisteta taulukosta vielä).
     // Tuleva scheduler voi vapauttaa taulukkopaikan kokonaan.
     return true;
+}
+
+// Aseta prosessin PML4 fyysinen osoite (Vaihe 25 spawn).
+pub fn setPageTable(pid: u64, pml4_phys: u64) bool {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return false;
+    // Tallenna prosessikohtainen CR3.
+    processes[idx].page_table = pml4_phys;
+    // Onnistui.
+    return true;
+}
+
+// Hae prosessin PML4 — 0 tarkoittaa kernelin jaettua taulua.
+pub fn getPageTable(pid: u64) ?u64 {
+    // Hae prosessin indeksi.
+    const idx = findIndex(pid) orelse return null;
+    // Palauta page_table-kenttä (voi olla 0).
+    return processes[idx].page_table;
+}
+
+// Hae aktivoitava CR3 prosessille — 0 → käytä kernel PML4 (kutsujan vastuu).
+pub fn getPageTableOrDefault(pid: u64, kernel_pml4: u64) u64 {
+    // Hae prosessin sivutaulu.
+    const pt = getPageTable(pid) orelse return kernel_pml4;
+    // 0 = boot/legacy — kernel PML4.
+    if (pt == 0) return kernel_pml4;
+    // Prosessikohtainen PML4.
+    return pt;
 }

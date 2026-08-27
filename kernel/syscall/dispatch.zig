@@ -138,6 +138,13 @@ fn sysExit(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     const pid = process.currentPid();
     // Merkitse zombie — virhe jos jo zombie tai puuttuu.
     if (!process.markZombie(pid, code)) return abi.ESRCH;
+    // Preempt-scheduler aktiivinen — sama polku kuin sys_test_return (Vaihe 26).
+    const process_scheduler = @import("../sched/process_scheduler.zig");
+    if (process_scheduler.isActive()) {
+        // Merkitse valmis ja jatka scheduler-silmukkaa (ei palaa sysret-polkuun).
+        process_scheduler.userReturn();
+        unreachable;
+    }
     // Ring 3 kontekstista palaa spawn boot-testiin (kuten sys_test_return).
     if (usermode.usermode_saved_kernel_rsp != 0) {
         // Ei paluuta — hyppää takaisin kernel-pinolle.
@@ -226,7 +233,12 @@ fn sysCapTransfer(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
 
 // sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
 fn sysTestReturn(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
-    // Vaihda boot-pinon osoitteeseen ja hyppää runBootTest-jatkoon.
+    // Preempt-scheduler aktiivinen — jatka seuraavaan prosessiin (Vaihe 26).
+    const process_scheduler = @import("../sched/process_scheduler.zig");
+    if (process_scheduler.isActive()) {
+        process_scheduler.userReturn();
+        unreachable;
+    }
     usermode.returnToKernelTestContinue();
 }
 

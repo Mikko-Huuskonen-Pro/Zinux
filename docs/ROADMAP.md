@@ -363,7 +363,7 @@ PR #2 -branchin security review (vaiheet 20–22) löysi **2 medium-löydöstä*
 | ID | Severity | Sijainti | Ongelma | Korjaus | Vaihe |
 |----|----------|----------|---------|---------|-------|
 | **S1** | Medium | `dispatch.zig:506`, `capability_core.zig` | `sys_cap_create` asentaa capin **pid 1**:een, mutta slotit haetaan **`currentPid`**:llä → väärä namespace / DoS pid ≥ 2 | `createAndInstall(..., process.currentPid(), ...)` | **23.0** ✅ |
-| **S2** | Medium | `capability_core.zig:307`, `dispatch.zig:150` | `sys_cap_transfer` voi täyttää uhrin 32 slotin rajattomilla kopioilla | Deduplikointi tai siirto (ei pelkkä kopio) | **27.0** ⬜ |
+| **S2** | Medium | `capability_core.zig:307`, `dispatch.zig:150` | `sys_cap_transfer` voi täyttää uhrin 32 slotin rajattomilla kopioilla | Deduplikointi tai siirto (ei pelkkä kopio) | **27.0** ✅ |
 
 **S1 hyökkäyspolku (korjattu vaiheessa 23):** prosessi pid ≥ 2 kutsuu `sys_cap_create` → cap asentui aiemmin pid 1:een → `lookupSlot` etsii current pid:n taulukosta → slot-indeksi ei vastaa oikeaa capia / täyttää boot-prosessin slotit.
 
@@ -474,15 +474,15 @@ zig build boot-test
 
 ---
 
-## Vaihe 25 — Osoiteavaruudet per prosessi ⬜
+## Vaihe 25 — Osoiteavaruudet per prosessi ✅
 
 **Tavoite**: Jokaisella prosessilla oma sivutaulu (CR3); ELF-loader kartoittaa vain prosessin osoiteavaruuteen.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 25.1 | `Process.page_table` + CR3-vaihto | `process_core.zig`, `vmm.zig` | ⬜ Page table per pid OK |
-| 25.2 | ELF-loader prosessikohtaiseen tauluun | `loader/elf.zig`, `spawn.zig` | ⬜ ELF per address space OK |
-| 25.3 | Boot-testi: kaksi ELF:ää sama VA, eri prosessit | boot-testit | ⬜ Address space OK |
+| 25.1 | `Process.page_table` + CR3-vaihto | `process_core.zig`, `vmm.zig` | ✅ Page table per pid OK |
+| 25.2 | ELF-loader prosessikohtaiseen tauluun | `loader/elf.zig`, `spawn.zig` | ✅ ELF per address space OK |
+| 25.3 | Boot-testi: kaksi ELF:ää sama VA, eri prosessit | boot-testit | ✅ Address space OK |
 
 **Testi**:
 ```bash
@@ -492,15 +492,15 @@ zig build boot-test
 
 ---
 
-## Vaihe 26 — Scheduler + prosessit ⬜
+## Vaihe 26 — Scheduler + prosessit ✅
 
 **Tavoite**: Timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee (ei vain peräkkäinen `enterUserAs`).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 26.1 | Prosessi → säie(t) prosessitaulukossa | `process_core.zig`, `thread.zig` | ⬜ Process threads OK |
-| 26.2 | Timer IRQ → prosessinvaihto | `scheduler.zig`, `idt.zig` | ⬜ Timer preempt OK |
-| 26.3 | Boot-testi: kaksi prosessia vuorottelee | boot-testit | ⬜ Preempt OK |
+| 26.1 | Prosessi → säie(t) prosessitaulukossa | `process_thread.zig`, `process_scheduler.zig` | ✅ Process threads OK |
+| 26.2 | Timer IRQ → prosessinvaihto | `process_scheduler.zig`, `timer_irq.S` | ✅ Timer preempt OK |
+| 26.3 | Boot-testi: kaksi prosessia vuorottelee | `preempt_syscall.zig` | ✅ Preempt OK |
 
 **Testi**:
 ```bash
@@ -512,16 +512,16 @@ zig build boot-test
 
 ---
 
-## Vaihe 27 — Cross-process IPC userland-demo ⬜
+## Vaihe 27 — Cross-process IPC userland-demo ✅
 
 **Tavoite**: Userland-prosessi spawnaa toisen, siirtää recv-capabilityn, send → recv ilman kernel-orchestraatiota.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 27.0 | Security: `sys_cap_transfer` deduplikointi / siirto | `capability_core.zig` | ⬜ Cap transfer bounded OK |
-| 27.1 | `userland/lib/spawn.zig` + `cap.transfer()` demo | `userland/lib/` | ⬜ Userland spawn cap OK |
-| 27.2 | Parent spawn → transfer → child recv | `userland/cross_spawn_ipc_test/` | ⬜ Userland cross spawn IPC OK |
-| 27.3 | Boot-testi ring 3:ssa | kernel launcher + ELF | ⬜ Userland cross spawn IPC test OK |
+| 27.0 | Security: `sys_cap_transfer` deduplikointi / siirto | `capability_core.zig` | ✅ Cap transfer bounded OK |
+| 27.1 | `userland/lib/spawn.zig` + `cap.transfer()` demo | `userland/lib/` | ✅ Userland spawn cap OK |
+| 27.2 | Parent spawn → transfer → child recv | `userland/cross_spawn_ipc_test/` | ✅ Userland cross spawn IPC OK |
+| 27.3 | Boot-testi ring 3:ssa | kernel launcher + ELF | ✅ Userland cross spawn IPC test OK |
 
 **Testi**:
 ```bash

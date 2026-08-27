@@ -5,10 +5,10 @@
 
 ---
 
-## Nykyinen vaihe: **25** ⬜
+## Nykyinen vaihe: **28** ⬜
 
-**Branch**: `cursor/process-exit-wait-4d97`  
-**PR**: (luodaan pushin jälkeen)  
+**Branch**: `cursor/scheduler-preempt-4d97`  
+**PR**: https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/5  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
@@ -40,11 +40,14 @@
 | 22 Cross-process IPC | ✅ |
 | 23 Prosessilista (sys_ps) | ✅ |
 | 24 Prosessin elinkaari (exit/wait) | ✅ |
+| 25 Osoiteavaruudet per prosessi | ✅ |
+| 26 Scheduler + prosessit | ✅ |
+| 27 Cross-process IPC userland | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 25)
+### Tämän kierroksen prioriteetti (Vaihe 28)
 
-**Osoiteavaruudet per prosessi** — CR3 + prosessikohtainen sivutaulu.  
-Katso `docs/ROADMAP.md` vaihe 25.
+**Capability-pohjainen mmap (`sys_mem_map`)** — memory-cap + kartoitus ring 3:een.  
+Katso `docs/ROADMAP.md` vaihe 28.
 
 ---
 
