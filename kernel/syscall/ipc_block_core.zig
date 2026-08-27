@@ -77,10 +77,20 @@ pub fn shouldFire(now_tick: u64) bool {
     return true;
 }
 
+// Montako ulompaa odotuskierrosta ennen luovutusta (ei timer-armia).
+const WAIT_OUTER_LIMIT: u32 = 64;
+
 // Odotus ennen recv-uudelleenyritystä — spin kunnes timer on lähettänyt.
 pub fn waitForMessage() void {
+    // Ulompaa odotuskierrosta — estää ikuisen spinin ilman timer-armia.
+    var outer: u32 = 0;
     // Odota kunnes timer-wake merkitsee lähetyksen valmiiksi.
     while (!isSent()) {
+        // Ei timer-armia — recv ei voi edetä bootissa ennen PIT:ää.
+        if (armed_port_id == null) return;
+        // Liian monta kierrosta ilman lähetystä — luovuta (recv palauttaa Empty).
+        outer += 1;
+        if (outer >= WAIT_OUTER_LIMIT) return;
         // Ota keskeytykset käyttöön — PIT IRQ0 vaatii IF=1.
         asm volatile ("sti" ::: .{ .memory = true });
         // Spin yksi quantum — timer IRQ voi keskeyttää.

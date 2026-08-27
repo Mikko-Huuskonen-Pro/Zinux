@@ -331,7 +331,7 @@ zig build run
 ## Lyhyen aikavälin suunnitelma (vaiheet 19–22)
 
 > **Prioriteetti**: ensin IPC-introspektion viimeistely (19), sitten cross-process IPC (20–22).
-> Boot-testit kasvavat jokaisella vaiheella — boot-aika on jo ~3 min; refaktorointi myöhemmin tarpeen.
+> **Boot**: `zig build run` = smoke (~10 s), `zig build boot-test` = full integraatiotestit (QEMU lopettaa itse).
 
 | Vaihe | Teema | Tavoite |
 |-------|-------|---------|

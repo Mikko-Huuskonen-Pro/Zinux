@@ -21,8 +21,15 @@ jobs:
       - run: zig build test
       - run: zig build
       - run: zig build iso
-      - name: Boot test in QEMU
+      - name: Smoke boot in QEMU
         run: |
           set -o pipefail
-          timeout 30s zig build run 2>&1 | tee boot.log || test $? -eq 124
-          grep -q "Zinux boot OK" boot.log
+          zig build run 2>&1 | tee boot-smoke.log
+          grep -q "Zinux boot OK" boot-smoke.log
+          grep -q "Smoke boot OK" boot-smoke.log
+      - name: Full boot integration tests
+        run: |
+          set -o pipefail
+          timeout 180s zig build boot-test 2>&1 | tee boot-full.log
+          grep -q "All boot tests OK" boot-full.log
+          grep -q "Full boot OK" boot-full.log

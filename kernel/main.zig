@@ -26,32 +26,24 @@ const vmm = @import("mm/vmm.zig");
 const heap = @import("mm/heap.zig");
 // Tuo muistitestit — 100 kehystä + heap smoke test.
 const memtest = @import("mm/memtest.zig");
-// Tuo PIC — keskeytysohjaimen remap ja EOI (Vaihe 3).
-const pic = @import("arch/x86_64/pic.zig");
-// Tuo PIT — timer IRQ0 aikataulutusta varten (Vaihe 3).
-const pit = @import("drivers/timer/pit.zig");
-// Tuo scheduler — kaksi säiettä coop-yield (Vaihe 3).
-const scheduler = @import("sched/scheduler.zig");
+// Tuo SYSCALL MSR-alustus (Vaihe 4.1).
+const syscall = @import("arch/x86_64/syscall.zig");
+// Pakota syscall dispatch linkitys — syscall_entry.S kutsuu export-funktiota.
+const _dispatch_link = @import("syscall/dispatch.zig");
+// Tuo KASLR — satunnainen user/heap-slide (Vaihe 7.3).
+const kaslr = @import("arch/x86_64/kaslr.zig");
+// Tuo boot-tila — smoke / full / dev (build.zig -Dboot=).
+const boot_options = @import("boot_options");
+// Tuo integraatiotestit — full + dev -tilat.
+const boot_tests = @import("boot_tests.zig");
+// Tuo QEMU-lopetus — smoke/full-tilan siisti exit.
+const qemu_exit = @import("lib/qemu_exit.zig");
 // Tuo SMP stub — Limine CPU-määrä (Vaihe 3).
 const smp = @import("boot/smp.zig");
 // Tuo PIT ticks — linkittää timerOnIrqC timer_irq.S:lle.
 const pit_ticks = @import("lib/pit_ticks.zig");
-// Tuo SYSCALL MSR-alustus (Vaihe 4.1).
-const syscall = @import("arch/x86_64/syscall.zig");
-// Tuo syscall dispatch — handler-taulukko (Vaihe 4.2).
-const dispatch = @import("syscall/dispatch.zig");
-// Tuo capability-hallinta (Vaihe 4.3).
-const capability = @import("ipc/capability.zig");
-// Tuo IPC-portit (Vaihe 4.4).
-const port = @import("ipc/port.zig");
-// Tuo ring 3 usermode (Vaihe 4.5).
-const usermode = @import("arch/x86_64/usermode.zig");
-// Tuo SMEP/SMAP kovennus (Vaihe 7.1).
-const hardening = @import("arch/x86_64/hardening.zig");
-// Tuo pinon canaryt (Vaihe 7.2).
-const stack_canary = @import("arch/x86_64/stack_canary.zig");
-// Tuo KASLR — satunnainen user/heap-slide (Vaihe 7.3).
-const kaslr = @import("arch/x86_64/kaslr.zig");
+// Tuo scheduler — coop ABAB-demo (full/dev).
+const scheduler = @import("sched/scheduler.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -89,6 +81,8 @@ fn kmain() noreturn {
     log.info("IDT initialized");
     // Alusta SYSCALL MSRs (STAR/LSTAR/SFMASK + EFER.SCE) — IDT:n jälkeen.
     syscall.init();
+    // Pakota dispatch export linkitys (smoke-build ei kutsu boot_tests.runAll).
+    _dispatch_link.linkAnchor();
     // Vahvista syscall entry -osoite on asetettu.
     log.info("Syscall MSRs initialized");
     // Hae Limine boot-info (HHDM offset jne.).
@@ -126,135 +120,34 @@ fn kmain() noreturn {
     log.info("Heap initialized");
     // Aja Vaihe 2 integraatiotestit (100 kehystä + heap smoke test).
     memtest.runAll();
-    // Boot on valmis — CI etsii tämän merkkijonon serialista.
+    // Boot on valmis — CI smoke-testi etsii tämän merkkijonon serialista.
     log.info("Zinux boot OK");
-    // Vaihe 4.2 — dispatch boot-testi (sys_write → serial "SY").
-    dispatch.runBootTest();
-    // Vaihe 4.3 — capability boot-testi (create + delegate).
-    capability.runBootTest();
-    // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
-    port.runBootTest();
-    // Vaihe 8.1 — sys_ipc_send / sys_ipc_recv syscallit dispatch invoke()-kautta.
-    const ipc_syscall = @import("syscall/ipc_syscall.zig");
-    ipc_syscall.runBootTest();
-    // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
-    const cap_audit = @import("ipc/cap_audit.zig");
-    cap_audit.runBootTest();
-    // Vaihe 7.5 — syscall dispatch -fuzz (ENOSYS tuntemattomille).
-    const syscall_fuzz = @import("syscall/syscall_fuzz.zig");
-    syscall_fuzz.runBootTest();
-    // Ota SMEP/SMAP käyttöön ennen ring 3 -testejä (Vaihe 7.1).
-    hardening.init();
-    // Vahvista SMEP/SMAP aktivointi.
-    hardening.runBootTest();
-    // Maalaa canaryt kernel-pinoihin (early, syscall, TSS) — Vaihe 7.2.
-    stack_canary.init();
-    // Vahvista canaryt ennen ring 3 -testejä.
-    stack_canary.runBootTest();
-    // Vaihe 4.5 — ring 3 sys_write("hello") SYSCALL:lla.
-    usermode.runBootTest();
-    // Vaihe 5.1 — ELF-loader: lataa upotettu user-ELF ja aja "elf".
-    const elf_loader = @import("loader/elf.zig");
-    elf_loader.runBootTest();
-    // Vaihe 5.2 — init-prosessi ELF-loaderilla (sys_write "init\n").
-    const init_proc = @import("init.zig");
-    init_proc.launch();
-    // Vaihe 5.3/5.5 — shell-komennot (help, meminfo, ps) boot-testinä.
-    const shell_proc = @import("shell.zig");
-    shell_proc.runBootTest();
-    // --- Vaihe 3: aikataulutus ---
-    // Remapaa PIC IRQ:t vektoreihin 32..47.
-    pic.remap(32);
-    // Vaihe 5.4 — PS/2-näppäimistö (i8042 + IRQ1 → UART-syöttörengas).
-    const keyboard = @import("drivers/char/keyboard.zig");
-    keyboard.init();
-    // Salli keyboard IRQ1 (PIC master linja 1).
-    pic.unmaskIrq(1);
-    // Rekisteröi keyboard-käsittelijä IDT vektoriin 33.
-    idt.registerHandler(keyboard.KEYBOARD_VECTOR, idt.keyboardHandlerAddr());
-    // Boot-testi: simuloi scancodet (CI ilman fyysistä näppäimistöä).
-    keyboard.runBootTest();
-    // Vaihe 6.1 — PCI-väylän skannaus (config space 0xCF8/0xCFC).
-    const pci = @import("drivers/bus/pci.zig");
-    pci.runBootTest();
-    // Vaihe 6.2 — VirtIO block -ajuri (PCI common cfg + sektori 0).
-    const virtio_blk = @import("drivers/block/virtio_blk.zig");
-    virtio_blk.runBootTest();
-    // Vaihe 6.3 — VFS-rajapinta (mount + open/read/close).
-    const vfs = @import("fs/vfs.zig");
-    vfs.runBootTest();
-    // Vaihe 6.4 — tmpfs RAM-tiedostojärjestelmä mount /tmp.
-    const tmpfs = @import("fs/tmpfs.zig");
-    tmpfs.runBootTest();
-    // Vaihe 6.5 — käyttäjätilan ajurimalli (registry + null driver).
-    const userland_driver = @import("userland_driver.zig");
-    userland_driver.runBootTest();
-    // Vaihe 8.2 — userland IPC-kirjasto (ipc.zig send/recv ring 3:ssa).
-    const ipc_userland = @import("ipc_userland.zig");
-    ipc_userland.runBootTest();
-    // Vaihe 9.2 — userland capability delegointi (cap.zig ring 3:ssa).
-    const cap_userland = @import("cap_userland.zig");
-    cap_userland.runBootTest();
-    // Vaihe 9.1 — sys_cap_delegate syscall (invoke + Cap syscall OK).
-    const cap_syscall = @import("syscall/cap_syscall.zig");
-    cap_syscall.runBootTest();
-    // Vaihe 10.1 — sys_cap_create syscall (invoke + Cap create syscall OK).
-    const cap_create_syscall = @import("syscall/cap_create_syscall.zig");
-    cap_create_syscall.runBootTest();
-    // Vaihe 10.2 — userland cap.createPort (ring 3 create + ipc roundtrip).
-    const cap_create_userland = @import("cap_create_userland.zig");
-    cap_create_userland.runBootTest();
-    // Alusta PIT ~100 Hz — timer IRQ taustalle.
-    pit.init(100);
-    // Salli timer IRQ0 (PIC mask pois).
-    pic.unmaskIrq(0);
-    // Rekisteröi timer-käsittelijä IDT vektoriin 32 (assembly timer_irq.S).
-    idt.registerHandler(pic.TIMER_VECTOR, idt.timerHandlerAddr());
-    // Vahvista Vaihe 3 timer-infrastruktuuri.
-    log.info("Phase 3 timer OK");
-    // Vaihe 11.1 — blocking sys_ipc_recv + timer-wake boot-testi (kernel recv).
-    const ipc_block = @import("ipc/ipc_block.zig");
-    ipc_block.runBootTest();
-    // Vaihe 11.2 — userland blocking ipc.recv ring 3:ssa (timer-wake).
-    const ipc_block_userland = @import("ipc_block_userland.zig");
-    ipc_block_userland.runBootTest();
-    // Vaihe 12.1 — sys_cap_revoke syscall (invoke + Cap revoke syscall OK).
-    const cap_revoke_syscall = @import("syscall/cap_revoke_syscall.zig");
-    cap_revoke_syscall.runBootTest();
-    // Vaihe 12.2 — userland cap.revoke (ring 3 revoke + send fail).
-    const cap_revoke_userland = @import("cap_revoke_userland.zig");
-    cap_revoke_userland.runBootTest();
-    // Vaihe 13.1 — sys_ipc_try_recv syscall (invoke + IPC try recv syscall OK).
-    const ipc_try_recv_syscall = @import("syscall/ipc_try_recv_syscall.zig");
-    ipc_try_recv_syscall.runBootTest();
-    // Vaihe 13.2 — userland ipc.tryRecv (ring 3 non-blocking recv).
-    const ipc_try_recv_userland = @import("ipc_try_recv_userland.zig");
-    ipc_try_recv_userland.runBootTest();
-    // Vaihe 14.1 — sys_ipc_pending syscall (invoke + IPC pending syscall OK).
-    const ipc_pending_syscall = @import("syscall/ipc_pending_syscall.zig");
-    ipc_pending_syscall.runBootTest();
-    // Vaihe 14.2 — userland ipc.pending (ring 3 queue depth query).
-    const ipc_pending_userland = @import("ipc_pending_userland.zig");
-    ipc_pending_userland.runBootTest();
-    // Vaihe 15 — sys_cap_get_rights invoke + userland cap.getRights (yksi portti).
-    const cap_get_rights = @import("cap_get_rights.zig");
-    cap_get_rights.runBootTest();
-    // Vaihe 16 — sys_cap_get_type + port vapautus revoke:ssa + userland cap.getType.
-    const cap_get_type = @import("cap_get_type.zig");
-    cap_get_type.runBootTest();
-    // Vaihe 17.1 — sys_ipc_flush syscall (invoke + IPC flush syscall OK).
-    const ipc_flush_syscall = @import("syscall/ipc_flush_syscall.zig");
-    ipc_flush_syscall.runBootTest();
-    // Vaihe 17.2 — userland ipc.flush (ring 3 queue flush).
-    const ipc_flush_userland = @import("ipc_flush_userland.zig");
-    ipc_flush_userland.runBootTest();
-    // Vaihe 18 — sys_cap_get_resource + read-oikeus + userland cap.getResource.
-    const cap_get_resource = @import("cap_get_resource.zig");
-    cap_get_resource.runBootTest();
+    // Smoke: lopeta heti perusalustuksen jälkeen (nopea CI / zig build run).
+    if (boot_options.mode == .smoke) {
+        // Vahvista smoke-polku serialiin.
+        log.info("Smoke boot OK");
+        // Pysäytä QEMU — ei aja integraatiotestejä.
+        qemu_exit.exitSuccess();
+    }
+    // Full + dev: aja kaikki integraatiotestit (vaihe 4–18).
+    boot_tests.runAll();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).
     _ = pit_ticks.count();
-    // Käynnistä scheduler — coop-yield tuottaa ABAB... serialissa.
-    scheduler.start();
+    // Scheduler ABAB-demo — dev jää ikuiseen idleen, full palaa ja lopettaa.
+    const idle_forever = boot_options.mode == .dev;
+    scheduler.start(idle_forever);
+    // Full: kaikki testit + scheduler-demo valmis — lopeta QEMU.
+    if (boot_options.mode == .full) {
+        // Vahvista full-polku serialiin.
+        log.info("Full boot OK");
+        // Pysäytä QEMU siististi (ei timeoutia).
+        qemu_exit.exitSuccess();
+    }
+    // Dev: scheduler.start palaa vain jos idle_forever=false — tänne ei päästä.
+    while (true) {
+        // CLI + HLT — varmuuden vuoksi jos dev-polku muuttuu.
+        asm volatile ("cli; hlt" ::: .{ .memory = true });
+    }
 }

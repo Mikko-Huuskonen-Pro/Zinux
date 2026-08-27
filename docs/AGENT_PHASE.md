@@ -47,6 +47,6 @@ Katso `docs/ROADMAP.md` vaiheet 19–22 (19 ensin, sitten cross-process IPC 20�
 1. Lue `docs/ROADMAP.md` + tämä tiedosto.
 2. Toteuta **alin keskeneräinen vaihe** (ei Vaihe 2 uudelleen).
 3. Ylidokumentointi: `//` jokaisella rivillä uudessa Zig-koodissa.
-4. `zig build test` + boot-testi ennen committia.
+4. `zig build test` + `zig build boot-test` ennen committia (`zig build run` = nopea smoke).
 5. Kun vaihe valmis ROADMAPissa → päivitä **Nykyinen vaihe** -numero tähän tiedostoon.
 6. Commit, push, päivitä PR.

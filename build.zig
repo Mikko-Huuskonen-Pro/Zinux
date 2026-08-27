@@ -4,7 +4,9 @@
 //! **Käyttö**:
 //!   `zig build`        — käännä kernel.elf
 //!   `zig build iso`    — luo bootattava ISO
-//!   `zig build run`    — käynnistä QEMU:ssa
+//!   `zig build run`        — QEMU smoke boot (nopea, lopettaa "Smoke boot OK")
+//!   `zig build boot-test`  — QEMU täysi integraatiotestit (lopettaa "Full boot OK")
+//!   `zig build run -Dboot=dev` — interaktiivinen scheduler (ei lopeta)
 //!   `zig build test`   — aja host-yksikkötestit
 
 const std = @import("std");
@@ -15,6 +17,13 @@ const limine_cache = ".zig-cache/limine";
 
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
+
+    // Boot-tila: smoke (CI/nopea), full (integraatiotestit), dev (ikuinen scheduler).
+    const boot_mode = b.option(
+        enum { smoke, full, dev },
+        "boot",
+        "Kernel boot mode: smoke (fast CI), full (all tests + exit), dev (interactive)",
+    ) orelse .smoke;
 
     // Freestanding x86_64 — ei SSE/AVX (ei FPU-tilan tallennusta bootissa).
     var query = std.Target.Query{
@@ -44,6 +53,11 @@ pub fn build(b: *std.Build) void {
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
     kernel_mod.addImport("zinuxabi", abi_mod);
+
+    // Boot-tila kernelille (smoke / full / dev).
+    const boot_options = b.addOptions();
+    boot_options.addOption(@TypeOf(boot_mode), "mode", boot_mode);
+    kernel_mod.addOptions("boot_options", boot_options);
 
     // --- Loader-testi user-ELF (Vaihe 5.1) — upotetaan kerneliin ---
     const user_test_mod = b.createModule(.{
@@ -681,25 +695,42 @@ pub fn build(b: *std.Build) void {
         , .{test_img_path}),
     });
 
-    // --- QEMU run (headless — toimii CI:ssä ilman GTK-näyttöä) ---
-    const qemu = b.addSystemCommand(&.{
-        "qemu-system-x86_64",
-        "-M", "q35",
-        "-cpu", "qemu64,+smep,+smap",
-        "-m", "512M",
-        "-display", "none",
-        "-monitor", "none",
-        "-serial", "stdio",
-        "-no-reboot",
-        "-no-shutdown",
-        "-drive", b.fmt("if=none,id=zbd,format=raw,file={s}", .{test_img_path}),
-        "-device", "virtio-blk-pci,drive=zbd,disable-legacy=on",
-        "-cdrom",
-    });
-    qemu.addFileArg(b.path(iso_path_rel));
+    // --- QEMU run (headless — isa-debug-exit lopettaa smoke/full-testit) ---
+    // isa-debug-exit palauttaa shellille exit 1 kun kirjoitetaan 0 (QEMU-konventio).
+    const qemu = b.addSystemCommand(&.{ "bash", "-c" });
+    qemu.addArg(b.fmt(
+        \\set -o pipefail
+        \\qemu-system-x86_64 \
+        \\  -M q35 \
+        \\  -cpu qemu64,+smep,+smap \
+        \\  -m 512M \
+        \\  -display none \
+        \\  -monitor none \
+        \\  -serial stdio \
+        \\  -no-reboot \
+        \\  -no-shutdown \
+        \\  -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
+        \\  -drive if=none,id=zbd,format=raw,file={s} \
+        \\  -device virtio-blk-pci,drive=zbd,disable-legacy=on \
+        \\  -cdrom {s}
+        \\ec=$?
+        \\if [ "$ec" -eq 0 ] || [ "$ec" -eq 1 ]; then exit 0; fi
+        \\exit "$ec"
+    , .{ test_img_path, iso_path }));
     qemu.step.dependOn(&limine_install.step);
     qemu.step.dependOn(&mk_test_disk.step);
 
-    const run_step = b.step("run", "Run Zinux in QEMU");
+    const run_step = b.step("run", "Run Zinux in QEMU (smoke boot, exits quickly)");
     run_step.dependOn(&qemu.step);
+
+    // --- Täysi boot-integraatiotestit (erillinen build -Dboot=full) ---
+    const boot_test_cmd = b.addSystemCommand(&.{
+        b.graph.zig_exe,
+        "build",
+        "run",
+        "-Dboot=full",
+    });
+    boot_test_cmd.setCwd(b.path("."));
+    const boot_test_step = b.step("boot-test", "Run full QEMU integration boot tests");
+    boot_test_step.dependOn(&boot_test_cmd.step);
 }

@@ -85,7 +85,7 @@ export fn threadBEntry() callconv(.c) void {
 }
 
 // Alusta scheduler ja hyppää ensimmäiseen säieeseen (coop switch).
-pub fn start() noreturn {
+pub fn start(comptime idle_forever: bool) void {
     // Alusta säie-pinot entry-funktioilla.
     thread_mod.init(&threads[0], 0, threadAEntry);
     thread_mod.init(&threads[1], 1, threadBEntry);
@@ -100,10 +100,12 @@ pub fn start() noreturn {
     current = 0;
     // Vaihda kmain-pinosta säie A:han — palaa kun molemmat säikeet valmiit.
     context.switchContext(&boot_rsp, threads[0].ctx.rsp);
-    // Coop-demo valmis — odota PIT-keskeytyksiä idle-tilassa.
-    while (true) {
-        // STI + HLT — timer IRQ taustalla (Phase 3 timer ticks OK logitetaan IRQ:ssa).
-        asm volatile ("sti; hlt" ::: .{ .memory = true });
+    // Coop-demo valmis — dev-tilassa odota PIT-keskeytyksiä ikuisesti.
+    if (idle_forever) {
+        while (true) {
+            // STI + HLT — timer IRQ taustalla (Phase 3 timer ticks OK logitetaan IRQ:ssa).
+            asm volatile ("sti; hlt" ::: .{ .memory = true });
+        }
     }
 }
 

@@ -68,8 +68,14 @@ pub fn isDangerous(num: u64) bool {
         2 => true,
         // sys_ipc_send — dereferoi user-osoitteen.
         4 => true,
-        // sys_ipc_recv — dereferoi user-osoitteen.
+        // sys_ipc_recv — blokkaa tyhjällä jonolla (timer-wake vaaditaan).
         5 => true,
+        // sys_cap_delegate — mutatoi capability-tilaa fuzzissa.
+        6 => true,
+        // sys_cap_create — luo portteja fuzzissa.
+        7 => true,
+        // sys_cap_revoke — mutatoi capability-tilaa fuzzissa.
+        8 => true,
         // sys_ipc_try_recv — dereferoi user-osoitteen (EAGAIN jos tyhjä).
         9 => true,
         // sys_test_return — hyppää pois boot-kontekstista.
@@ -80,7 +86,16 @@ pub fn isDangerous(num: u64) bool {
         12 => true,
         // sys_ps — dereferoi user-osoitteen.
         13 => true,
-        // sys_write fd=1 len>0 dereferoi — fuzzaa erikseen turvallisesti.
+        // sys_ipc_pending — riippuu slot-tilasta.
+        14 => true,
+        // sys_cap_get_rights — riippuu slot-tilasta.
+        15 => true,
+        // sys_cap_get_type — riippuu slot-tilasta.
+        16 => true,
+        // sys_ipc_flush — mutatoi jonoja fuzzissa.
+        17 => true,
+        // sys_cap_get_resource — riippuu slot-tilasta.
+        18 => true,
         // Muut numerot turvallisia tai ENOSYS.
         else => false,
     };

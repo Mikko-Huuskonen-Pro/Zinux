@@ -527,6 +527,15 @@ const handlers: [32]?SyscallFn = blk: {
     break :blk table;
 };
 
+// Pakota linkitys smoke-buildissa — export-funktio ei saa poistua LTO:ssa.
+pub fn linkAnchor() void {
+    // Ota export-funktion osoite — assembly entry (syscall_entry.S) tarvitsee symbolin.
+    const p = @as(*const anyopaque, @ptrCast(@as(*const fn (*SyscallFrame) callconv(.c) i64, &syscallDispatchFromFrame)));
+    // Estä optimointi / dead-strip poistamasta export-symbolia.
+    asm volatile ("" ::: .{ .memory = true });
+    if (@intFromPtr(p) == 0) @trap();
+}
+
 // Suorita yksi syscall kehyksen perusteella (C-puoli entry:stä).
 pub export fn syscallDispatchFromFrame(frame: *SyscallFrame) i64 {
     // Hae syscall-numero kehyksestä.
