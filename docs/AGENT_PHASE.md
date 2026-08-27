@@ -5,10 +5,10 @@
 
 ---
 
-## Nykyinen vaihe: **26** ⬜
+## Nykyinen vaihe: **28** ⬜
 
-**Branch**: `cursor/process-address-space-4d97`  
-**PR**: #4 (base: #3 exit/wait)  
+**Branch**: `cursor/scheduler-preempt-4d97`  
+**PR**: https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/5  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
@@ -41,11 +41,13 @@
 | 23 Prosessilista (sys_ps) | ✅ |
 | 24 Prosessin elinkaari (exit/wait) | ✅ |
 | 25 Osoiteavaruudet per prosessi | ✅ |
+| 26 Scheduler + prosessit | ✅ |
+| 27 Cross-process IPC userland | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 26)
+### Tämän kierroksen prioriteetti (Vaihe 28)
 
-**Scheduler + prosessit** — timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee.  
-Katso `docs/ROADMAP.md` vaihe 26.
+**Capability-pohjainen mmap (`sys_mem_map`)** — memory-cap + kartoitus ring 3:een.  
+Katso `docs/ROADMAP.md` vaihe 28.
 
 ---
 

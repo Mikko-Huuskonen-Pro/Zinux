@@ -10,6 +10,8 @@ pub const SYS_spawn: u64 = 20;
 pub const SPAWN_ID_CHILD_A: u64 = 0;
 // Embedded ELF -tunniste: spawn-lapsi B (kernel/spawn.zig).
 pub const SPAWN_ID_CHILD_B: u64 = 1;
+// Embedded ELF -tunniste: cross-spawn IPC lapsi (Vaihe 27).
+pub const SPAWN_ID_CROSS_SPAWN_CHILD: u64 = 7;
 
 // Spawn-kirjaston virheet — negatiiviset syscall-palut.
 pub const SpawnError = error{
