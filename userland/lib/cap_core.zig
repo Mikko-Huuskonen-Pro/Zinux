@@ -26,6 +26,9 @@ pub const MASK_GRANT: u32 = 1 << 5;
 // Kaikki sallitut bitit.
 pub const MASK_ALL: u32 = MASK_READ | MASK_WRITE | MASK_SEND | MASK_RECV | MASK_MAP | MASK_GRANT;
 
+// Capability-tyyppi: IPC-portti (sys_cap_create).
+pub const CAP_TYPE_PORT: u32 = 1;
+
 // Onko negatiivinen syscall-paluuarvo virhe?
 pub fn isError(ret: i64) bool {
     // Positiivinen tai nolla = onnistuminen (uusi slot-indeksi).

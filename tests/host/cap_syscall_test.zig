@@ -16,6 +16,13 @@ test "rights mask decode" {
     try std.testing.expect(cap.rightsFromMask(1 << 16) == null);
 }
 
+test "cap create type validation" {
+    // Portti-tyyppi tuettu.
+    try std.testing.expect(cap.typeValid(cap.CAP_TYPE_PORT));
+    // Tuntematon tyyppi hylätään.
+    try std.testing.expect(!cap.typeValid(99));
+}
+
 test "mask constants cover all bits" {
     // MASK_ALL sisältää kaikki yksittäiset bitit.
     try std.testing.expectEqual(@as(u32, cap.MASK_READ | cap.MASK_WRITE | cap.MASK_SEND | cap.MASK_RECV | cap.MASK_MAP | cap.MASK_GRANT), cap.MASK_ALL);

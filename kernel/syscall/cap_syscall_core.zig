@@ -26,6 +26,15 @@ pub const MASK_GRANT: u32 = 1 << 5;
 // Sallitut bitit yhdistettynä — varattujen bittien tarkistukseen.
 pub const MASK_ALL: u32 = MASK_READ | MASK_WRITE | MASK_SEND | MASK_RECV | MASK_MAP | MASK_GRANT;
 
+// Capability-tyyppi: IPC-portti (sys_cap_create arg1).
+pub const CAP_TYPE_PORT: u32 = 1;
+
+// Onko sys_cap_create -tyyppi tuettu?
+pub fn typeValid(typ: u32) bool {
+    // Vain portti-tyyppi toistaiseksi.
+    return typ == CAP_TYPE_PORT;
+}
+
 // Rights packed struct — sama layout kuin capability_core.Rights.
 pub const Rights = packed struct(u32) {
     // Luku-oikeus.

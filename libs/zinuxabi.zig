@@ -16,6 +16,8 @@ pub const SYS_ipc_send: u64 = 4;
 pub const SYS_ipc_recv: u64 = 5;
 // Syscall-numero: sys_cap_delegate(slot, rights_mask) → uusi slot tai neg. virhe.
 pub const SYS_cap_delegate: u64 = 6;
+// Syscall-numero: sys_cap_create(type, rights_mask) → uusi slot tai neg. virhe.
+pub const SYS_cap_create: u64 = 7;
 // Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
 pub const SYS_read: u64 = 11;
 // Syscall-numero: sys_meminfo(buf, len) → kirjoitetut tavut.

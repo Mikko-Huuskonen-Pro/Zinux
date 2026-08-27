@@ -344,6 +344,26 @@ fn sysCapDelegate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(derived);
 }
 
+// sys_cap_create — luo uusi capability (portti) annetuilla oikeuksilla.
+fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-tyyppi (CAP_TYPE_PORT = 1).
+    const typ: u32 = @intCast(a1);
+    // Oikeudet bitmaskina.
+    const mask: u32 = @intCast(a2);
+    // Tarkista tyyppi tuettu.
+    if (!cap_core.typeValid(typ)) return abi.EINVAL;
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const rights: cap.Rights = @bitCast(rights_raw);
+    // Luo fyysinen IPC-portti.
+    const port_id = port.createPort() orelse return abi.EINVAL;
+    // Asenna capability portille — palauta slot-indeksi.
+    const slot = cap.createAndInstall(.port, 1, port_id, rights) orelse return abi.EINVAL;
+    // Palauta uuden capability-slotin indeksi.
+    return @intCast(slot);
+}
+
 // sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
 fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Käyttäjän puskurin osoite.
@@ -379,6 +399,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_recv)] = sysIpcRecv;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).
     table[@intCast(abi.SYS_cap_delegate)] = sysCapDelegate;
+    // Rekisteröi sys_cap_create (uusi capability-portti).
+    table[@intCast(abi.SYS_cap_create)] = sysCapCreate;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Rekisteröi sys_meminfo (shell meminfo-komento).

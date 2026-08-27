@@ -198,6 +198,12 @@ fn kmain() noreturn {
     // Vaihe 9.1 — sys_cap_delegate syscall (invoke + Cap syscall OK).
     const cap_syscall = @import("syscall/cap_syscall.zig");
     cap_syscall.runBootTest();
+    // Vaihe 10.1 — sys_cap_create syscall (invoke + Cap create syscall OK).
+    const cap_create_syscall = @import("syscall/cap_create_syscall.zig");
+    cap_create_syscall.runBootTest();
+    // Vaihe 10.2 — userland cap.createPort (ring 3 create + ipc roundtrip).
+    const cap_create_userland = @import("cap_create_userland.zig");
+    cap_create_userland.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).

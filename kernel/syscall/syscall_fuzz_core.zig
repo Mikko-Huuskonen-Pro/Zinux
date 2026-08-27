@@ -31,6 +31,8 @@ pub fn isRegistered(num: u64) bool {
         5 => true,
         // sys_cap_delegate.
         6 => true,
+        // sys_cap_create.
+        7 => true,
         // sys_test_return.
         10 => true,
         // sys_read.

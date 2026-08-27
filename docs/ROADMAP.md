@@ -175,6 +175,23 @@ zig build run
 
 ---
 
+## Vaihe 10 — Capability-luonti käyttäjätilaan ✅
+
+**Tavoite**: Ring 3 voi luoda uusia IPC-portti-capabilityja `sys_cap_create`-syscallilla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 10.1 | sys_cap_create | `kernel/syscall/dispatch.zig`, `cap_syscall_core.zig` | ✅ invoke + Cap create syscall OK |
+| 10.2 | Userland cap.createPort | `userland/lib/cap.zig` | ✅ ring 3 create + Userland cap create test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap create syscall OK, userland cap create OK, Userland cap create test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -188,6 +205,7 @@ graph TD
     V6 --> V7[Vaihe 7: Turvallisuus]
     V7 --> V8[Vaihe 8: IPC userland]
     V8 --> V9[Vaihe 9: Cap delegate]
+    V9 --> V10[Vaihe 10: Cap create]
 ```
 
 ---
