@@ -75,3 +75,8 @@ test {
 test {
     _ = @import("syscall_fuzz_test.zig");
 }
+
+// Tuo IPC-syscall-ydin-yksikkötestit.
+test {
+    _ = @import("ipc_syscall_test.zig");
+}

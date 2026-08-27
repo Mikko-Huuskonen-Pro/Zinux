@@ -18,6 +18,10 @@ const pmm = @import("../mm/pmm.zig");
 const heap = @import("../mm/heap.zig");
 // Tuo user_access — stac/clac SMAP-yhteensopivuuteen.
 const user_access = @import("../arch/x86_64/user_access.zig");
+// Tuo IPC-portit — sendViaSlot/recvViaSlot capability-tarkistuksella.
+const port = @import("../ipc/port.zig");
+// Tuo IPC-syscall-ydin — PortError → ABI.
+const ipc_core = @import("ipc_syscall_core.zig");
 
 // Syscall-käsittelijän funktiotyyppi (6 argumenttia, i64 paluu).
 const SyscallFn = *const fn (u64, u64, u64, u64, u64, u64) i64;
@@ -227,6 +231,76 @@ fn sysMeminfo(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return copyToUser(user, user_len, kbuf[0..pos], pos);
 }
 
+// Kopioi käyttäjän puskuri kernel-puskuriin — palauttaa kopioitujen tavujen määrä.
+fn copyFromUser(kernel_buf: []u8, user: [*]const u8, user_len: u64) i64 {
+    // Tyhjä kopiointi on OK.
+    if (user_len == 0) return 0;
+    // Kopioitavien tavujen enimmäismäärä.
+    const copy_len = @min(kernel_buf.len, @as(usize, @intCast(user_len)));
+    // SMAP: salli user-sivujen luku kernelistä.
+    user_access.stac();
+    // Kopioi tavu kerrallaan ring 3 -puskurista.
+    var i: usize = 0;
+    while (i < copy_len) : (i += 1) {
+        // Lue yksi tavu user-muistista.
+        kernel_buf[i] = user[i];
+    }
+    // Palauta SMAP-suojaus.
+    user_access.clac();
+    // Palauta kopioitujen tavujen määrä.
+    return @intCast(copy_len);
+}
+
+// sys_ipc_send — lähetä viesti capability-slotin kautta.
+fn sysIpcSend(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]const u8 = @ptrFromInt(a2);
+    // Lähetettävien tavujen määrä.
+    const len = a3;
+    // Tyhjä viesti on OK ilman user-kopiota.
+    if (len == 0) {
+        // Lähetä nollapituinen viesti porttiin.
+        const sent = port.sendViaSlot(slot_idx, "") catch |err| return ipc_core.mapPortError(err);
+        // Palauta lähetettyjen tavujen määrä.
+        return @intCast(sent);
+    }
+    // Viesti ei saa ylittää portin MAX_MSG_SIZE.
+    if (len > port.MAX_MSG_SIZE) return abi.EINVAL;
+    // Kernel-puskuri user-datalle ennen sendViaSlot-kutsua.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Kopioi user-puskuri kerneliin.
+    const copied = copyFromUser(&kbuf, user, len);
+    // Kopio epäonnistui tai tyhjä (ei pitäisi tapahtua len>0).
+    if (copied <= 0) return abi.EINVAL;
+    // Lähetä slotin kautta (capability-tarkistus port.zig:ssä).
+    // Lähetä slotin kautta (capability-tarkistus port.zig:ssä).
+    const sent = port.sendViaSlot(slot_idx, kbuf[0..@intCast(copied)]) catch |err| return ipc_core.mapPortError(err);
+    // Palauta lähetettyjen tavujen määrä.
+    return @intCast(sent);
+}
+
+// sys_ipc_recv — vastaanota viesti capability-slotin kautta.
+fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slott indeksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Käyttäjän puskurin osoite.
+    const user: [*]u8 = @ptrFromInt(a2);
+    // Puskurin enimmäispituus.
+    const user_len = a3;
+    // Tyhjä puskuri — ei kopioitavaa.
+    if (user_len == 0) return 0;
+    // Kernel-puskuri vastaanotolle.
+    var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
+    // Vastaanota slotin kautta (capability-tarkistus port.zig:ssä).
+    const recv_len = port.recvViaSlot(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
+    // Kopioi viesti käyttäjän puskuriin (max user_len tavua).
+    _ = copyToUser(user, user_len, kbuf[0..recv_len], recv_len);
+    // Palauta viestin alkuperäinen pituus (kuten read()).
+    return @intCast(recv_len);
+}
+
 // sys_ps — täytä käyttäjän puskuri yksinkertaisella prosessilistalla (stub).
 fn sysPs(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Käyttäjän puskurin osoite.
@@ -256,6 +330,10 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_exit)] = sysExit;
     // Rekisteröi sys_getpid.
     table[@intCast(abi.SYS_getpid)] = sysGetpid;
+    // Rekisteröi sys_ipc_send (capability-porttiin lähetys).
+    table[@intCast(abi.SYS_ipc_send)] = sysIpcSend;
+    // Rekisteröi sys_ipc_recv (capability-portista vastaanotto).
+    table[@intCast(abi.SYS_ipc_recv)] = sysIpcRecv;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Rekisteröi sys_meminfo (shell meminfo-komento).

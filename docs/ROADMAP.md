@@ -129,7 +129,7 @@ zig build run
 
 ---
 
-## Vaihe 7 — Turvallisuus & kovennus
+## Vaihe 7 — Turvallisuus & kovennus ✅
 
 | # | Tehtävä |
 |---|---------|
@@ -138,6 +138,23 @@ zig build run
 | 7.3 | KASLR (satunnainen kernel-base) | ✅ RDTSC+HHDM heap slide + KASLR OK |
 | 7.4 | Capability-audit logging | ✅ rengaspuskuri + Capability audit OK |
 | 7.5 | Fuzzing: syscall-rajapinta | ✅ LCG fuzz + Syscall fuzz OK |
+
+---
+
+## Vaihe 8 — IPC käyttäjätilaan
+
+**Tavoite**: Ring 3 voi lähettää/vastaanottaa viestejä capability-slottien kautta syscallien avulla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 8.1 | sys_ipc_send / sys_ipc_recv | `kernel/syscall/dispatch.zig`, `ipc_syscall_core.zig` | ✅ invoke + IPC syscall OK |
+| 8.2 | Userland IPC-kirjasto | `userland/lib/ipc.zig` | ⬜ |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC port test OK, IPC syscall OK
+```
 
 ---
 
@@ -152,6 +169,7 @@ graph TD
     V4 --> V5[Vaihe 5: Shell]
     V5 --> V6[Vaihe 6: FS]
     V6 --> V7[Vaihe 7: Turvallisuus]
+    V7 --> V8[Vaihe 8: IPC userland]
 ```
 
 ---

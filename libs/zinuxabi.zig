@@ -10,9 +10,9 @@ pub const SYS_write: u64 = 1;
 pub const SYS_exit: u64 = 2;
 // Syscall-numero: sys_getpid() → prosessitunniste (stub 1).
 pub const SYS_getpid: u64 = 3;
-// Syscall-numero: sys_ipc_send (stub myöhemmin).
+// Syscall-numero: sys_ipc_send(slot, buf, len) → lähetetyt tavut tai neg. virhe.
 pub const SYS_ipc_send: u64 = 4;
-// Syscall-numero: sys_ipc_recv (stub myöhemmin).
+// Syscall-numero: sys_ipc_recv(slot, buf, len) → vastaanotetut tavut tai neg. virhe.
 pub const SYS_ipc_recv: u64 = 5;
 // Syscall-numero: sys_read(fd, buf, len) → luettujen tavujen määrä.
 pub const SYS_read: u64 = 11;
@@ -24,6 +24,7 @@ pub const SYS_ps: u64 = 13;
 pub const SYS_test_return: u64 = 10;
 
 // Virhekoodit (negatiiviset paluuarvot, Linux-yhteensopiva tyyli).
+pub const EAGAIN: i64 = -11;
 pub const EINVAL: i64 = -22;
 pub const EBADF: i64 = -9;
 pub const ENOSYS: i64 = -38;

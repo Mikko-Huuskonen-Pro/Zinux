@@ -25,6 +25,10 @@ pub fn isRegistered(num: u64) bool {
         2 => true,
         // sys_getpid.
         3 => true,
+        // sys_ipc_send.
+        4 => true,
+        // sys_ipc_recv.
+        5 => true,
         // sys_test_return.
         10 => true,
         // sys_read.
@@ -44,6 +48,10 @@ pub fn isDangerous(num: u64) bool {
     return switch (num) {
         // sys_exit — pysäyttää CPU:n.
         2 => true,
+        // sys_ipc_send — dereferoi user-osoitteen.
+        4 => true,
+        // sys_ipc_recv — dereferoi user-osoitteen.
+        5 => true,
         // sys_test_return — hyppää pois boot-kontekstista.
         10 => true,
         // sys_read — blokkaava UART-luku.

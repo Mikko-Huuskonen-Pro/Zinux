@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **8** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **8.2** (userland IPC-kirjasto) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -23,10 +23,11 @@
 | 5 Käyttäjätila | ✅ |
 | 6 Ajurit & tiedostojärjestelmä | ✅ |
 | 7 Turvallisuus & kovennus | ✅ |
+| 8.1 IPC syscalls (sys_ipc_send/recv) | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 8)
+### Tämän kierroksen prioriteetti (Vaihe 8.2)
 
-Katso `docs/ROADMAP.md` — seuraava vaihe määritellään sinne.
+Katso `docs/ROADMAP.md` — userland IPC-kirjasto (`userland/lib/ipc.zig`).
 
 ---
 

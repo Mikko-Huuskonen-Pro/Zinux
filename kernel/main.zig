@@ -134,6 +134,9 @@ fn kmain() noreturn {
     capability.runBootTest();
     // Vaihe 4.4 — IPC-portti boot-testi (send/recv capability-slotin kautta).
     port.runBootTest();
+    // Vaihe 8.1 — sys_ipc_send / sys_ipc_recv syscallit dispatch invoke()-kautta.
+    const ipc_syscall = @import("syscall/ipc_syscall.zig");
+    ipc_syscall.runBootTest();
     // Vaihe 7.4 — capability-audit-loki (create/delegate rengaspuskuri).
     const cap_audit = @import("ipc/cap_audit.zig");
     cap_audit.runBootTest();
