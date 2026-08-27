@@ -74,19 +74,19 @@ The kernel then decides which capabilities can actually be granted.
 
 The AI may request a capability, but it cannot grant one to itself.
 
-Plan, Policy, Implementation
+### Plan, Policy, Implementation
 
 Zinux separates three concepts:
 
-Plan
+#### Plan
 
-The local AI determines what the driver believes it needs.
+The local AI determines what the driver believes it needs. OS written in ZIG (More information about Zig(In Finnish)https://mikko-huuskonen-pro.github.io/zig-book-FI/)
 
-Policy
+#### Policy
 
 The kernel determines what the driver is actually allowed to do.
 
-Implementation
+#### Implementation
 
 The AI generates the smallest practical driver satisfying the approved plan.
 
