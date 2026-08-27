@@ -121,7 +121,7 @@ The plan is a request, not an authority.
 
 ⸻
 
-3.2 Policy
+#### 3.2 Policy
 
 The kernel evaluates the plan.
 
@@ -144,7 +144,7 @@ The generated implementation must operate within these restrictions.
 
 ⸻
 
-3.3 Implementation
+#### 3.3 Implementation
 
 Only after the plan and capabilities have been established should the AI generate the hardware-specific implementation.
 
@@ -160,7 +160,7 @@ This is an intentional architectural constraint.
 
 ⸻
 
-4. The boilerplate hypothesis
+### 4. The boilerplate hypothesis
 
 One of the lessons from previous driver synthesis research is that not all driver code is equally suitable for synthesis.
 
@@ -190,8 +190,8 @@ Traditional driver
 │ resources                    │
 │ lifecycle                    │
 │ IPC                          │
-│ capabilities                │
-│ interrupts                  │
+│ capabilities                 │
+│ interrupts                   │
 │                              │
 ├──────────────────────────────┤
 │ Hardware-specific logic      │
@@ -222,7 +222,7 @@ The first UART experiment should measure whether this separation is useful.
 
 ⸻
 
-5. The first task
+### 5. The first task
 
 The first task should deliberately be extremely small:
 
@@ -254,7 +254,7 @@ If this cannot be made reliable for a simple UART, the broader AI-native driver 
 
 ⸻
 
-6. Hardware information
+### 6. Hardware information
 
 The AI should receive hardware information in a structured but realistic form.
 
@@ -281,7 +281,7 @@ This is one of the major differences from classical driver synthesis.
 
 ⸻
 
-7. Do not give the AI unnecessary assumptions
+### 7. Do not give the AI unnecessary assumptions
 
 The AI should be encouraged to distinguish between:
 
@@ -321,7 +321,7 @@ A major goal of the experiment is to discover whether the AI can work effectivel
 
 ⸻
 
-8. Capability model
+### 8. Capability model
 
 The first experiment should use the smallest possible capability set.
 
@@ -367,7 +367,7 @@ This interaction is central to the Zinux concept.
 
 ⸻
 
-9. Validation
+### 9. Validation
 
 Generated code must not immediately receive access to real hardware.
 
@@ -403,7 +403,7 @@ The experiment should determine what level of validation is practical without re
 
 ⸻
 
-10. Runtime isolation
+### 10. Runtime isolation
 
 Even a successfully validated driver should not automatically be trusted with unrestricted system access.
 
@@ -430,7 +430,7 @@ should fail because the operating system prevents the operation, not because the
 
 ⸻
 
-11. Counterexamples
+### 11. Counterexamples
 
 One important lesson from synthesis research is the value of counterexamples.
 
@@ -455,7 +455,7 @@ Suggested action:
 The long-term goal is for the AI to use these failures as feedback.
 
 Conceptually:
-
+'''
 AI
  ↓
 Plan
@@ -471,7 +471,7 @@ AI revises plan
 Kernel
  ↓
 ACCEPTED
-
+'''
 This creates a potentially important difference between traditional synthesis and AI-assisted synthesis.
 
 The AI does not have to solve the entire problem perfectly on its first attempt.
@@ -480,7 +480,7 @@ It can iteratively converge under strict system constraints.
 
 ⸻
 
-12. UART experiment stages
+### 12. UART experiment stages
 
 The experiment should grow gradually.
 
@@ -564,7 +564,7 @@ Determine whether the AI can recover from explicit system feedback.
 
 ⸻
 
-13. Fake hardware first
+### 13. Fake hardware first
 
 Before real hardware, Zinux should provide a deterministic fake UART.
 
