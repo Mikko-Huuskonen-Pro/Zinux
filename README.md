@@ -54,6 +54,7 @@ The AI does not receive unrestricted access to the system.
 Instead, the AI first creates a plan describing the smallest set of resources required to perform the task.
 
 For example:
+``` text
 Task:
     Read a temperature sensor.
 
@@ -68,8 +69,7 @@ Not required:
     Other devices
     Kernel memory
     MMIO writes
-
-
+```
 The kernel then decides which capabilities can actually be granted.
 
 The AI may request a capability, but it cannot grant one to itself.
