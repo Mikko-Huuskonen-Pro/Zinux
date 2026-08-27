@@ -593,7 +593,7 @@ It is a controlled laboratory.
 
 ⸻
 
-14. Real hardware
+### 14. Real hardware
 
 After the fake device works, the same driver model should be tested against real hardware.
 
@@ -609,7 +609,7 @@ Only after this should the experiment move toward more complicated devices.
 
 ⸻
 
-15. What should be measured?
+### 15. What should be measured?
 
 The experiment should not use “it worked once” as its primary success criterion.
 
@@ -669,12 +669,12 @@ runtime counterexample
 
 ⸻
 
-16. The most important comparison
+### 16. The most important comparison
 
 The experiment should ultimately compare two models.
 
 Traditional synthesis
-
+```
 Human
  ↓
 formal specification
@@ -702,7 +702,7 @@ validation
 sandbox
  ↓
 driver
-
+```
 The key research question is not:
 
 “Can AI write a UART driver?”
@@ -717,7 +717,7 @@ That is the experiment.
 
 ⸻
 
-17. New assumptions being tested
+### 17. New assumptions being tested
 
 Zinux is deliberately challenging several traditional assumptions.
 
@@ -779,7 +779,7 @@ under kernel control.
 
 ⸻
 
-18. What would count as success?
+### 18. What would count as success?
 
 A successful first experiment does not require a production-quality UART driver.
 
@@ -793,7 +793,7 @@ The same process works after the kernel rejects unnecessary capabilities and pro
 
 ⸻
 
-19. What would count as failure?
+### 19. What would count as failure?
 
 The experiment must also be allowed to disprove the hypothesis.
 
@@ -815,12 +815,12 @@ The goal is to discover the boundary of the model.
 
 ⸻
 
-20. Long-term direction
+### 20. Long-term direction
 
 UART is only the laboratory.
 
 If the model works, the same architecture can be tested against increasingly difficult hardware:
-
+```
 UART
  ↓
 RTC
@@ -838,7 +838,7 @@ motor controller
 camera
  ↓
 robotic subsystem
-
+```
 The final goal is not to create an AI that knows every device.
 
 The goal is to create an operating system where:
@@ -847,7 +847,7 @@ The system can construct the smallest hardware interface required for the task a
 
 ⸻
 
-21. Guiding principle
+### 21. Guiding principle
 
 The project should continuously return to this:
 
