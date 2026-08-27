@@ -8,7 +8,7 @@
 ## Nykyinen vaihe: **26** ⬜
 
 **Branch**: `cursor/process-address-space-4d97`  
-**PR**: (luodaan pushin jälkeen)  
+**PR**: #4 (base: #3 exit/wait)  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
