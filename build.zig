@@ -115,6 +115,30 @@ pub fn build(b: *std.Build) void {
     copy_shell_elf.addFileArg(embedded_shell_path);
     copy_shell_elf.step.dependOn(&shell_exe.step);
 
+    // --- Userland driver test ELF (Vaihe 6.5) — upotetaan kerneliin ---
+    const driver_mod = b.createModule(.{
+        .root_source_file = b.path("userland/drivers/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    driver_mod.red_zone = false;
+    driver_mod.stack_protector = false;
+    driver_mod.single_threaded = true;
+    driver_mod.code_model = .large;
+    const driver_exe = b.addExecutable(.{
+        .name = "zinux-driver-test",
+        .root_module = driver_mod,
+    });
+    driver_exe.setLinkerScript(b.path("userland/drivers/user.ld"));
+    driver_exe.root_module.addAssemblyFile(b.path("userland/drivers/start.S"));
+    b.installArtifact(driver_exe);
+
+    const embedded_driver_path = b.path("kernel/loader/driver_prog.bin");
+    const copy_driver_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_driver_elf.addFileArg(driver_exe.getEmittedBin());
+    copy_driver_elf.addFileArg(embedded_driver_path);
+    copy_driver_elf.step.dependOn(&driver_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -129,6 +153,7 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_test_elf.step);
     kernel.step.dependOn(&copy_init_elf.step);
     kernel.step.dependOn(&copy_shell_elf.step);
+    kernel.step.dependOn(&copy_driver_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---
@@ -167,6 +192,11 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const driver_registry_core_mod = b.createModule(.{
+        .root_source_file = b.path("userland/drivers/registry_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -178,6 +208,7 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("port_core", port_core_mod);
     host_test_mod.addImport("vfs_core", vfs_core_mod);
     host_test_mod.addImport("tmpfs_core", tmpfs_core_mod);
+    host_test_mod.addImport("driver_registry_core", driver_registry_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });

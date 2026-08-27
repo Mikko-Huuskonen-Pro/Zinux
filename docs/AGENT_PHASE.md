@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **6** (Ajurit & tiedostojärjestelmä) ⬜
+## Nykyinen vaihe: **7** (Turvallisuus & kovennus) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -21,22 +21,19 @@
 | 3 Prosessit & aikataulutus | ✅ |
 | 4 Syscalls & IPC | ✅ |
 | 5 Käyttäjätila | ✅ |
+| 6 Ajurit & tiedostojärjestelmä | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 6)
+### Tämän kierroksen prioriteetti (Vaihe 7)
 
 Tee **yksi merkittävä askel** kerrallaan, testaa, commit + push + PR:
 
-1. ~~**6.1** PCI bus scan (`kernel/drivers/bus/pci.zig`)~~ ✅
-2. ~~**6.2** VirtIO block -ajuri (`kernel/drivers/block/virtio_blk.zig`)~~ ✅
-3. ~~**6.3** VFS-rajapinta (`kernel/fs/vfs.zig`)~~ ✅
-4. ~~**6.4** tmpfs (`kernel/fs/tmpfs.zig`)~~ ✅
-5. **6.5** Käyttäjätilan ajurimalli (`userland/drivers/`)
+1. **7.1** SMEP/SMAP aktivointi
 
 ---
 
-## Seuraava vaihe kun 6 on ✅: **7** (Turvallisuus & kovennus)
+## Seuraava vaihe kun 7 on ✅: **8** (ei vielä ROADMAPissa — jatka ROADMAP.md)
 
-Katso `docs/ROADMAP.md` — aloita kohdasta 7.1.
+Katso `docs/ROADMAP.md` — seuraa Vaihe 7 -kohtia.
 
 ---
 

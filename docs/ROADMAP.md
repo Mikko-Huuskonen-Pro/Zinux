@@ -115,7 +115,7 @@ zig build run
 
 ---
 
-## Vaihe 6 — Ajurit & tiedostojärjestelmä
+## Vaihe 6 — Ajurit & tiedostojärjestelmä ✅
 
 **Tavoite**: PCI-enumerointi, virtio-blk, yksinkertainen FS.
 
@@ -125,7 +125,7 @@ zig build run
 | 6.2 | VirtIO block -ajuri | `kernel/drivers/block/virtio_blk.zig` | ✅ PCI common cfg + VirtIO block read OK |
 | 6.3 | VFS-rajapinta | `kernel/fs/vfs.zig` | ✅ mount + open/read/close + VFS test OK |
 | 6.4 | tmpfs (RAM-pohjainen) | `kernel/fs/tmpfs.zig` | ✅ /tmp/welcome + tmpfs test OK |
-| 6.5 | Käyttäjätilan ajurimalli | `userland/drivers/` |
+| 6.5 | Käyttäjätilan ajurimalli | `userland/drivers/` | ✅ registry + null driver + Userland driver test OK |
 
 ---
 

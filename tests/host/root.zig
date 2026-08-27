@@ -45,3 +45,8 @@ test {
 test {
     _ = @import("tmpfs_test.zig");
 }
+
+// Tuo ajurirekisteri-ydin-yksikkötestit.
+test {
+    _ = @import("driver_registry_test.zig");
+}

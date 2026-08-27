@@ -159,6 +159,9 @@ fn kmain() noreturn {
     // Vaihe 6.4 — tmpfs RAM-tiedostojärjestelmä mount /tmp.
     const tmpfs = @import("fs/tmpfs.zig");
     tmpfs.runBootTest();
+    // Vaihe 6.5 — käyttäjätilan ajurimalli (registry + null driver).
+    const userland_driver = @import("userland_driver.zig");
+    userland_driver.runBootTest();
     // Alusta PIT ~100 Hz — timer IRQ taustalle.
     pit.init(100);
     // Salli timer IRQ0 (PIC mask pois).
