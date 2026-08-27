@@ -30,6 +30,8 @@ pub const CAP_TYPE_PORT = core.CAP_TYPE_PORT;
 pub const SYS_cap_create: u64 = 7;
 // Syscall-numero: sys_cap_revoke(slot).
 pub const SYS_cap_revoke: u64 = 8;
+// Syscall-numero: sys_cap_get_rights(slot).
+pub const SYS_cap_get_rights: u64 = 15;
 
 // Capability-kirjaston virheet.
 pub const CapError = error{
@@ -79,6 +81,16 @@ fn sysCapRevoke(slot: u32) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_cap_get_rights — palauttaa oikeusmaskin tai neg. virhe.
+fn sysCapGetRights(slot: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_cap_get_rights),
+          [slot] "{rdi}" (@as(u64, slot)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Alin tason sys_cap_delegate — palauttaa raa'an i64-paluuarvon.
 fn sysCapDelegate(slot: u32, rights_mask: u32) i64 {
     // SYSCALL: RAX=num, RDI=slot, RSI=rights_mask.
@@ -120,4 +132,14 @@ pub fn revoke(slot: u32) CapError!void {
     const ret = sysCapRevoke(slot);
     // Negatiivinen → virhe.
     if (core.isError(ret)) return mapSyscallError(ret);
+}
+
+// Kysy capability-slotin oikeusmaski.
+pub fn getRights(slot: u32) CapError!u32 {
+    // Kutsu kerneliä — palauttaa slotin oikeudet bitmaskina.
+    const ret = sysCapGetRights(slot);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
+    // Palauta oikeusmaski.
+    return @intCast(ret);
 }

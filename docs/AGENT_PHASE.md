@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **15** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **16** (ei vielä ROADMAPissa) ⬜
 
 **Branch**: `cursor/zinux-architecture-plan-4d97`  
 **PR**: [#1](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/1)  
@@ -30,8 +30,9 @@
 | 12 Capability peruutus | ✅ |
 | 13 Non-blocking IPC recv | ✅ |
 | 14 IPC jonon syvyys | ✅ |
+| 15 Capability oikeuskysely | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 15)
+### Tämän kierroksen prioriteetti (Vaihe 16)
 
 Katso `docs/ROADMAP.md` — seuraava vaihe määritellään sinne.
 

@@ -30,6 +30,8 @@ pub const SYS_meminfo: u64 = 12;
 pub const SYS_ps: u64 = 13;
 // Syscall-numero: sys_ipc_pending(slot) → jonossa olevien viestien määrä.
 pub const SYS_ipc_pending: u64 = 14;
+// Syscall-numero: sys_cap_get_rights(slot) → oikeusmaski tai neg. virhe.
+pub const SYS_cap_get_rights: u64 = 15;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

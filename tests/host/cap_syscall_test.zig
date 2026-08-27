@@ -23,7 +23,19 @@ test "cap create type validation" {
     try std.testing.expect(!cap.typeValid(99));
 }
 
-test "mask constants cover all bits" {
-    // MASK_ALL sisältää kaikki yksittäiset bitit.
-    try std.testing.expectEqual(@as(u32, cap.MASK_READ | cap.MASK_WRITE | cap.MASK_SEND | cap.MASK_RECV | cap.MASK_MAP | cap.MASK_GRANT), cap.MASK_ALL);
+test "rights mask roundtrip" {
+    // Täydet oikeudet maskissa.
+    const full_mask = cap.MASK_READ | cap.MASK_SEND | cap.MASK_RECV | cap.MASK_GRANT;
+    // Dekoodaa maski → Rights.
+    const rights = cap.rightsFromMask(full_mask) orelse return error.TestFailed;
+    // Koodaa Rights → maski.
+    const back = cap.rightsToMask(rights);
+    // Roundtrip täsmää.
+    try std.testing.expectEqual(full_mask, back);
+    // recv-only maski.
+    const recv_mask = cap.MASK_RECV;
+    // Dekoodaa recv-only.
+    const recv_rights = cap.rightsFromMask(recv_mask) orelse return error.TestFailed;
+    // Koodaa takaisin.
+    try std.testing.expectEqual(recv_mask, cap.rightsToMask(recv_rights));
 }

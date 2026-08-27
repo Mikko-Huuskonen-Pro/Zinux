@@ -47,6 +47,8 @@ pub fn isRegistered(num: u64) bool {
         13 => true,
         // sys_ipc_pending.
         14 => true,
+        // sys_cap_get_rights.
+        15 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
@@ -62,6 +64,8 @@ pub fn isDangerous(num: u64) bool {
         4 => true,
         // sys_ipc_recv — dereferoi user-osoitteen.
         5 => true,
+        // sys_ipc_try_recv — dereferoi user-osoitteen (EAGAIN jos tyhjä).
+        9 => true,
         // sys_test_return — hyppää pois boot-kontekstista.
         10 => true,
         // sys_read — blokkaava UART-luku.

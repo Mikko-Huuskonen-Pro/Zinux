@@ -79,3 +79,23 @@ pub fn rightsFromMask(mask: u32) ?Rights {
         .grant = (mask & MASK_GRANT) != 0,
     };
 }
+
+// Muunna Rights-rakenne → u32 rights_mask.
+pub fn rightsToMask(rights: Rights) u32 {
+    // Aloita tyhjästä maskista.
+    var mask: u32 = 0;
+    // read-bitti päälle jos asetettu.
+    if (rights.read) mask |= MASK_READ;
+    // write-bitti päälle jos asetettu.
+    if (rights.write) mask |= MASK_WRITE;
+    // send-bitti päälle jos asetettu.
+    if (rights.send) mask |= MASK_SEND;
+    // recv-bitti päälle jos asetettu.
+    if (rights.recv) mask |= MASK_RECV;
+    // map-bitti päälle jos asetettu.
+    if (rights.map) mask |= MASK_MAP;
+    // grant-bitti päälle jos asetettu.
+    if (rights.grant) mask |= MASK_GRANT;
+    // Palauta koko maski.
+    return mask;
+}

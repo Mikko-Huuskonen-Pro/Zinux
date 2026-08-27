@@ -236,6 +236,9 @@ fn kmain() noreturn {
     // Vaihe 14.2 — userland ipc.pending (ring 3 queue depth query).
     const ipc_pending_userland = @import("ipc_pending_userland.zig");
     ipc_pending_userland.runBootTest();
+    // Vaihe 15 — sys_cap_get_rights invoke + userland cap.getRights (yksi portti).
+    const cap_get_rights = @import("cap_get_rights.zig");
+    cap_get_rights.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

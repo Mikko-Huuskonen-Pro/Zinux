@@ -260,6 +260,23 @@ zig build run
 
 ---
 
+## Vaihe 15 — Capability oikeuskysely käyttäjätilaan ✅
+
+**Tavoite**: Ring 3 voi lukea capability-slotin oikeusmaskin `sys_cap_get_rights`-syscallilla.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 15.1 | sys_cap_get_rights | `kernel/syscall/dispatch.zig`, `cap_get_rights.zig` | ✅ invoke + Cap get rights syscall OK |
+| 15.2 | Userland cap.getRights | `userland/lib/cap.zig`, `userland/cap_get_rights_test/` | ✅ ring 3 getRights + Userland cap get rights test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap get rights syscall OK, userland cap get rights OK, Userland cap get rights test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -278,6 +295,7 @@ graph TD
     V11 --> V12[Vaihe 12: Cap revoke]
     V12 --> V13[Vaihe 13: Try recv]
     V13 --> V14[Vaihe 14: IPC pending]
+    V14 --> V15[Vaihe 15: Cap get rights]
 ```
 
 ---
