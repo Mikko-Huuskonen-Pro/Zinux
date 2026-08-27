@@ -338,7 +338,7 @@ zig build run
 | **19** | IPC jonon kapasiteetti | `pending` / `flush` / `queueCapacity` introspection trio | ✅ |
 | **20** | Prosessitaulukko | Erilliset capability-slotit per pid | ✅ |
 | **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) | ✅ |
-| **22** | Cross-process IPC | Viesti prosessista A → prosessiin B |
+| **22** | Cross-process IPC | Viesti prosessista A → prosessiin B | ✅ |
 
 ---
 
@@ -387,20 +387,21 @@ zig build run
 
 ---
 
-## Vaihe 22 — Cross-process IPC ⬜
+## Vaihe 22 — Cross-process IPC ✅
 
 **Tavoite**: Prosessi A lähettää viestin prosessi B:n porttiin capabilityn kautta; portti-capability siirretty/delegoitu toiselle prosessille.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 22.1 | Capability siirto prosessien välillä | `capability_core.zig`, `sys_cap_transfer` (tai spawn + cap table) | ⬜ Cap transfer OK |
-| 22.2 | IPC send/recv cross-pid | `port.zig`, `dispatch.zig` | ⬜ Cross-process send OK |
-| 22.3 | Boot-testi: A send → B recv | `cross_ipc_test/` userland + kernel | ⬜ Cross-process IPC test OK |
+| 22.1 | Capability siirto prosessien välillä | `capability_core.zig`, `sys_cap_transfer`, `dispatch.zig` | ✅ Cap transfer OK |
+| 22.2 | IPC send/recv cross-pid | `port.zig`, `cross_ipc_syscall.zig` | ✅ Cross-process send OK |
+| 22.3 | Boot-testi: A send → B recv | `cross_ipc_test/`, `cross_ipc_userland.zig` | ✅ Userland cross IPC test OK |
 
 **Testi**:
 ```bash
-zig build run
-# Odotettu serial: Cross-process IPC syscall OK, userland cross ipc OK, Userland cross IPC test OK
+zig build boot-test
+# Odotettu serial: Cap transfer OK, Cross-process send OK, Cross-process IPC syscall OK,
+# userland cross ipc OK, Userland cross IPC test OK
 ```
 
 ---

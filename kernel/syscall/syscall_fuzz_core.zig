@@ -59,6 +59,8 @@ pub fn isRegistered(num: u64) bool {
         19 => true,
         // sys_spawn.
         20 => true,
+        // sys_cap_transfer.
+        21 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };
@@ -104,6 +106,8 @@ pub fn isDangerous(num: u64) bool {
         19 => true,
         // sys_spawn — luo prosesseja ja kartoittaa ELF:ää fuzzissa.
         20 => true,
+        // sys_cap_transfer — mutatoi capability-tilaa fuzzissa.
+        21 => true,
         // Muut numerot turvallisia tai ENOSYS.
         else => false,
     };

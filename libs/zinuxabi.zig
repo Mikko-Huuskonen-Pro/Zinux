@@ -42,6 +42,8 @@ pub const SYS_cap_get_resource: u64 = 18;
 pub const SYS_ipc_queue_capacity: u64 = 19;
 // Syscall-numero: sys_spawn(embedded_id) → uusi pid tai neg. virhe (Vaihe 21).
 pub const SYS_spawn: u64 = 20;
+// Syscall-numero: sys_cap_transfer(slot, dest_pid, rights_mask) → uusi slot tai neg. virhe (Vaihe 22).
+pub const SYS_cap_transfer: u64 = 21;
 // Syscall-numero: sys_test_return — palaa kernel boot-testiin (vain kehitys).
 pub const SYS_test_return: u64 = 10;
 

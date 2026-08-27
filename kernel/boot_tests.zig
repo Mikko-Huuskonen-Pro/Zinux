@@ -161,6 +161,12 @@ pub fn runAll() void {
     // Vaihe 19.2 — userland ipc.queueCapacity (ring 3 max queue depth query).
     const ipc_queue_capacity_userland = @import("ipc_queue_capacity_userland.zig");
     ipc_queue_capacity_userland.runBootTest();
+    // Vaihe 22 — cross-process IPC: cap transfer + send/recv eri pideillä.
+    const cross_ipc_syscall = @import("syscall/cross_ipc_syscall.zig");
+    cross_ipc_syscall.runBootTest();
+    // Vaihe 22.3 — userland cross-IPC sender/receiver ring 3:ssa.
+    const cross_ipc_userland = @import("cross_ipc_userland.zig");
+    cross_ipc_userland.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

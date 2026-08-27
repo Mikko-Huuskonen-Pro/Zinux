@@ -5,7 +5,7 @@
 
 ---
 
-## Nykyinen vaihe: **22** (ei vielä ROADMAPissa) ⬜
+## Nykyinen vaihe: **23** (ei vielä ROADMAPissa) ⬜
 
 **Branch**: `cursor/process-table-phase20-4d97`  
 **PR**: [#2](https://github.com/Mikko-Huuskonen-Pro/Zinux/pull/2)  
@@ -37,11 +37,11 @@
 | 19 IPC jonon kapasiteetti | ✅ |
 | 20 Prosessitaulukko | ✅ |
 | 21 Prosessin luonti (sys_spawn) | ✅ |
+| 22 Cross-process IPC | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 22)
+### Tämän kierroksen prioriteetti (Vaihe 23)
 
-**Cross-process IPC** — capability siirto prosessien välillä + send/recv eri pideillä.  
-Katso `docs/ROADMAP.md` vaihe 22.
+Katso `docs/ROADMAP.md` — seuraava vaihe roadmapin mukaan.
 
 ---
 

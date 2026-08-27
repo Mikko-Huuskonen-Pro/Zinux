@@ -303,6 +303,26 @@ pub fn delegateSlot(slot_idx: u32, new_rights: Rights) ?u32 {
     return derived;
 }
 
+// Siirrä capability toiselle prosessille — grant-oikeus vaaditaan lähde-slotissa (Vaihe 22).
+pub fn transferSlotToPid(src_slot: u32, dest_pid: u64, new_rights: Rights) ?u32 {
+    // Hae lähdeslotti nykyiseltä prosessilta.
+    const src = lookupSlot(src_slot) orelse return null;
+    // Siirto vaatii grant-bitin lähde-slotissa.
+    if (!src.rights.grant) return null;
+    // Uudet oikeudet ⊆ alkuperäiset oikeudet.
+    if (!rightsSubset(src.rights, new_rights)) return null;
+    // Kohdeprosessi pitää olla rekisteröity taulukossa.
+    if (process.findIndex(dest_pid) == null) return null;
+    // Asenna sama objekti kohdeprosessin slottiin annetuilla oikeuksilla.
+    const derived = installSlotForPid(dest_pid, src.object_id, new_rights) orelse return null;
+    // Hae objekti audit-merkintää varten.
+    const obj = getObject(src.object_id) orelse return derived;
+    // Audit: capability siirretty/delegoitu toiselle prosessille (delegate-op).
+    audit.record(.delegate, dest_pid, src.object_id, derived, @bitCast(new_rights), @intFromEnum(obj.typ));
+    // Palauta uuden slotin indeksi kohdeprosessissa.
+    return derived;
+}
+
 // Peruuta capability-slotti — invalidoi taustalla oleva objekti ja kaikki viitteet.
 pub fn revokeSlot(slot_idx: u32) bool {
     // Hae slotti indeksillä.
@@ -368,4 +388,16 @@ pub fn createAndInstall(
     const obj_id = createObject(typ, owner_pid, resource_id) orelse return null;
     // Asenna slottiin omistajaprosessille — palauta slot-indeksi.
     return installSlotForPid(owner_pid, obj_id, rights);
+}
+
+// Rekisteröi prosessi taulukkoon — host-testit (sama process_core-instanssi).
+pub fn registerProcess(pid: u64) bool {
+    // Delegoi prosessitaulukon allokaatioon.
+    return process.allocProcess(pid);
+}
+
+// Aseta nykyinen prosessi — host-testit cross-process siirtoon.
+pub fn setCurrentProcess(pid: u64) bool {
+    // Delegoi prosessitaulukon current pid:lle.
+    return process.setCurrentPid(pid);
 }

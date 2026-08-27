@@ -105,3 +105,32 @@ test "get slot resource requires read on delegate" {
     // Derived-slotilla ei read-oikeutta dispatch-tasolla (testataan bootissa).
     try std.testing.expect(!cap.slotHasRights(derived, .{ .read = true }));
 }
+
+test "transfer slot to another process" {
+    // Puhdas tila — prosessit 1, 2, 3 (sama process_core kuin cap-ytimessä).
+    cap.initCore();
+    try std.testing.expect(cap.registerProcess(2));
+    try std.testing.expect(cap.registerProcess(3));
+    // Luo portti prosessille 2 grant+recv-oikeuksilla (recv siirrettävissä).
+    const slot_a = cap.createAndInstall(.port, 2, 42, .{
+        .send = true,
+        .recv = true,
+        .grant = true,
+        .read = true,
+    }) orelse return error.TestFailed;
+    // Siirto vaatii current pid = prosessi 2.
+    try std.testing.expect(cap.setCurrentProcess(2));
+    // Siirrä recv-oikeus prosessille 3.
+    const slot_b = cap.transferSlotToPid(slot_a, 3, .{ .recv = true, .read = true }) orelse return error.TestFailed;
+    // Prosessi 3 ensimmäinen slotti.
+    try std.testing.expectEqual(@as(u32, 0), slot_b);
+    // Prosessi 2:lla send, ei recv derived-slotissa (recv siirrettiin).
+    try std.testing.expect(cap.slotHasRights(slot_a, .{ .send = true }));
+    // Prosessi 3:lla recv siirretyssä slotissa.
+    const ref_b = cap.lookupSlotForPid(3, slot_b) orelse return error.TestFailed;
+    try std.testing.expect(ref_b.rights.recv);
+    // Siirto ilman grant-oikeutta epäonnistuu.
+    const slot_c = cap.createAndInstall(.port, 2, 43, .{ .send = true }) orelse return error.TestFailed;
+    try std.testing.expect(cap.setCurrentProcess(2));
+    try std.testing.expect(cap.transferSlotToPid(slot_c, 3, .{ .recv = true }) == null);
+}

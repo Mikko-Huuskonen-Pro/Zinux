@@ -147,6 +147,24 @@ fn sysSpawn(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(pid);
 }
 
+// sys_cap_transfer — siirrä capability toiselle prosessille (Vaihe 22).
+fn sysCapTransfer(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
+    // Lähde capability-slotti nykyisessä prosessissa.
+    const src_slot: u32 = @intCast(a1);
+    // Kohdeprosessin tunniste.
+    const dest_pid = a2;
+    // Siirrettävät oikeudet bitmaskina.
+    const mask: u32 = @intCast(a3);
+    // Dekoodaa maski → Rights (hylkää varatut bitit).
+    const new_rights_raw = cap_core.rightsFromMask(mask) orelse return abi.EINVAL;
+    // Muunna cap_syscall_core.Rights → capability_core.Rights.
+    const new_rights: cap.Rights = @bitCast(new_rights_raw);
+    // Siirrä slotti kohdeprosessiin — grant vaaditaan lähde-slotissa.
+    const derived = cap.transferSlotToPid(src_slot, dest_pid, new_rights) orelse return abi.EPERM;
+    // Palauta uuden slotin indeksi kohdeprosessissa.
+    return @intCast(derived);
+}
+
 // sys_test_return — palaa kernel boot-testiin ring 3:sta (Vaihe 4.5).
 fn sysTestReturn(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Vaihda boot-pinon osoitteeseen ja hyppää runBootTest-jatkoon.
@@ -531,6 +549,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_ipc_queue_capacity)] = sysIpcQueueCapacity;
     // Rekisteröi sys_spawn (upotettu ELF → uusi prosessi).
     table[@intCast(abi.SYS_spawn)] = sysSpawn;
+    // Rekisteröi sys_cap_transfer (capability toiselle prosessille).
+    table[@intCast(abi.SYS_cap_transfer)] = sysCapTransfer;
     // Rekisteröi sys_ipc_flush (portin viestijonon tyhjennys).
     table[@intCast(abi.SYS_ipc_flush)] = sysIpcFlush;
     // Rekisteröi sys_cap_delegate (capability-oikeuksien delegointi).

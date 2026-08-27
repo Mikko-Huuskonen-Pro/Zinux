@@ -537,6 +537,31 @@ pub fn build(b: *std.Build) void {
     copy_spawn_child_b_elf.addFileArg(embedded_spawn_child_b_path);
     copy_spawn_child_b_elf.step.dependOn(&spawn_child_b_exe.step);
 
+    // --- Cross-IPC userland test ELF (Vaihe 22.3) — upotetaan kerneliin ---
+    const cross_ipc_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/cross_ipc_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    cross_ipc_test_mod.red_zone = false;
+    cross_ipc_test_mod.stack_protector = false;
+    cross_ipc_test_mod.single_threaded = true;
+    cross_ipc_test_mod.code_model = .large;
+    cross_ipc_test_mod.addImport("ipc", ipc_lib_mod);
+    const cross_ipc_test_exe = b.addExecutable(.{
+        .name = "zinux-cross-ipc-test",
+        .root_module = cross_ipc_test_mod,
+    });
+    cross_ipc_test_exe.setLinkerScript(b.path("userland/cross_ipc_test/user.ld"));
+    cross_ipc_test_exe.root_module.addAssemblyFile(b.path("userland/cross_ipc_test/start.S"));
+    b.installArtifact(cross_ipc_test_exe);
+
+    const embedded_cross_ipc_test_path = b.path("kernel/loader/cross_ipc_test_prog.bin");
+    const copy_cross_ipc_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_cross_ipc_test_elf.addFileArg(cross_ipc_test_exe.getEmittedBin());
+    copy_cross_ipc_test_elf.addFileArg(embedded_cross_ipc_test_path);
+    copy_cross_ipc_test_elf.step.dependOn(&cross_ipc_test_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -566,6 +591,7 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_ipc_block_test_elf.step);
     kernel.step.dependOn(&copy_spawn_child_a_elf.step);
     kernel.step.dependOn(&copy_spawn_child_b_elf.step);
+    kernel.step.dependOn(&copy_cross_ipc_test_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---
