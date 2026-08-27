@@ -277,6 +277,23 @@ zig build run
 
 ---
 
+## Vaihe 16 — Capability tyyppikysely ja portin vapautus ✅
+
+**Tavoite**: Ring 3 voi lukea capability-slotin tyypin `sys_cap_get_type`-syscallilla; portti-capabilityn peruutus vapauttaa IPC-portin.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 16.1 | sys_cap_get_type + port destroy on revoke | `dispatch.zig`, `capability_core.zig`, `cap_get_type.zig` | ✅ Cap get type syscall OK |
+| 16.2 | Userland cap.getType | `userland/lib/cap.zig`, `userland/cap_get_type_test/` | ✅ userland cap get type OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap get type syscall OK, userland cap get type OK, Userland cap get type test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -296,6 +313,7 @@ graph TD
     V12 --> V13[Vaihe 13: Try recv]
     V13 --> V14[Vaihe 14: IPC pending]
     V14 --> V15[Vaihe 15: Cap get rights]
+    V15 --> V16[Vaihe 16: Cap get type]
 ```
 
 ---

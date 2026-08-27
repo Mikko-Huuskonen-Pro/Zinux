@@ -239,6 +239,9 @@ fn kmain() noreturn {
     // Vaihe 15 — sys_cap_get_rights invoke + userland cap.getRights (yksi portti).
     const cap_get_rights = @import("cap_get_rights.zig");
     cap_get_rights.runBootTest();
+    // Vaihe 16 — sys_cap_get_type + port vapautus revoke:ssa + userland cap.getType.
+    const cap_get_type = @import("cap_get_type.zig");
+    cap_get_type.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

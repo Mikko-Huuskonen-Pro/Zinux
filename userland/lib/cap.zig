@@ -32,6 +32,8 @@ pub const SYS_cap_create: u64 = 7;
 pub const SYS_cap_revoke: u64 = 8;
 // Syscall-numero: sys_cap_get_rights(slot).
 pub const SYS_cap_get_rights: u64 = 15;
+// Syscall-numero: sys_cap_get_type(slot).
+pub const SYS_cap_get_type: u64 = 16;
 
 // Capability-kirjaston virheet.
 pub const CapError = error{
@@ -91,6 +93,16 @@ fn sysCapGetRights(slot: u32) i64 {
         : .{ .rcx = true, .r11 = true, .memory = true });
 }
 
+// Alin tason sys_cap_get_type — palauttaa capability-tyypin tai neg. virhe.
+fn sysCapGetType(slot: u32) i64 {
+    // SYSCALL: RAX=num, RDI=slot.
+    return asm volatile ("syscall"
+        : [ret] "={rax}" (-> i64),
+        : [num] "{rax}" (SYS_cap_get_type),
+          [slot] "{rdi}" (@as(u64, slot)),
+        : .{ .rcx = true, .r11 = true, .memory = true });
+}
+
 // Alin tason sys_cap_delegate — palauttaa raa'an i64-paluuarvon.
 fn sysCapDelegate(slot: u32, rights_mask: u32) i64 {
     // SYSCALL: RAX=num, RDI=slot, RSI=rights_mask.
@@ -141,5 +153,15 @@ pub fn getRights(slot: u32) CapError!u32 {
     // Negatiivinen → virhe.
     if (core.isError(ret)) return mapSyscallError(ret);
     // Palauta oikeusmaski.
+    return @intCast(ret);
+}
+
+// Kysy capability-slotin objektityyppi — palauttaa CAP_TYPE_* vakion.
+pub fn getType(slot: u32) CapError!u32 {
+    // Kutsu kerneliä — palauttaa tyyppinumeron.
+    const ret = sysCapGetType(slot);
+    // Negatiivinen → virhe.
+    if (core.isError(ret)) return mapSyscallError(ret);
+    // Palauta capability-tyyppi.
     return @intCast(ret);
 }

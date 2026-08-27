@@ -6,6 +6,8 @@
 
 // Tuo audit-ydin — rengaspuskuri capability-tapahtumille (Vaihe 7.4).
 const audit = @import("cap_audit_core");
+// Tuo porttien ydin — vapauta IPC-portti portti-capabilityn peruutuksessa.
+const port_core = @import("port_core.zig");
 
 // Capability-objektin tyyppi — mitä resurssia handle edustaa.
 pub const CapType = enum(u8) {
@@ -226,6 +228,18 @@ pub fn lookupSlot(slot_idx: u32) ?CapRef {
     return slots[@intCast(slot_idx)];
 }
 
+// Hae capability-slotin objektityyppi — null jos slotti mitätöity.
+pub fn getSlotType(slot_idx: u32) ?CapType {
+    // Hae slotti indeksillä.
+    const slot = lookupSlot(slot_idx) orelse return null;
+    // Slotti ilman objektiviitettä on mitätöity.
+    if (slot.object_id == 0) return null;
+    // Hae taustalla oleva objekti.
+    const obj = getObject(slot.object_id) orelse return null;
+    // Palauta objektin tyyppi.
+    return obj.typ;
+}
+
 // Tarkista onko slotilla pyydetty oikeus.
 pub fn slotHasRights(slot_idx: u32, requested: Rights) bool {
     // Hae slotti.
@@ -266,9 +280,10 @@ pub fn revokeSlot(slot_idx: u32) bool {
 pub fn revokeObject(object_id: u32) bool {
     // Hae objekti.
     const obj = getObject(object_id) orelse return false;
-    // Tallenna tyyppi ennen nollausta audit-merkintää varten.
+    // Tallenna tyyppi ja resurssitunniste ennen nollausta.
     const typ = obj.typ;
     const owner = obj.owner_pid;
+    const resource_id = obj.object_id;
     // Merkitse objekti vapaaksi.
     obj.used = false;
     // Nollaa tyyppi.
@@ -277,6 +292,11 @@ pub fn revokeObject(object_id: u32) bool {
     obj.owner_pid = 0;
     // Nollaa resurssitunniste.
     obj.object_id = 0;
+    // Vapauta IPC-portti jos objekti oli portti-tyyppiä.
+    if (typ == .port) {
+        // Tuhoa portin jono — vapauttaa port_id uudelleenkäyttöön.
+        _ = port_core.destroyPort(@intCast(resource_id));
+    }
     // Poista slot-viitteet tähän objektiin.
     var i: usize = 0;
     while (i < slot_count) : (i += 1) {

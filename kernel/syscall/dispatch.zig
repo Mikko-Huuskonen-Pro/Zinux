@@ -410,6 +410,16 @@ fn sysCapGetRights(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     return @intCast(cap_core.rightsToMask(rights_raw));
 }
 
+// sys_cap_get_type — palauta capability-slotin objektityyppi.
+fn sysCapGetType(a1: u64, _: u64, _: u64, _: u64, _: u64, _: u64) i64 {
+    // Capability-slotti kyseltäväksi.
+    const slot_idx: u32 = @intCast(a1);
+    // Hae slotin objektityyppi — null jos mitätöity.
+    const typ = cap.getSlotType(slot_idx) orelse return abi.EBADF;
+    // Palauta tyyppi numerona (CapType enum → u32).
+    return @intCast(@intFromEnum(typ));
+}
+
 // sys_cap_create — luo uusi capability (portti) annetuilla oikeuksilla.
 fn sysCapCreate(a1: u64, a2: u64, _: u64, _: u64, _: u64, _: u64) i64 {
     // Capability-tyyppi (CAP_TYPE_PORT = 1).
@@ -475,6 +485,8 @@ const handlers: [32]?SyscallFn = blk: {
     table[@intCast(abi.SYS_cap_revoke)] = sysCapRevoke;
     // Rekisteröi sys_cap_get_rights (capability-oikeusmaskin kysely).
     table[@intCast(abi.SYS_cap_get_rights)] = sysCapGetRights;
+    // Rekisteröi sys_cap_get_type (capability-objektityypin kysely).
+    table[@intCast(abi.SYS_cap_get_type)] = sysCapGetType;
     // Rekisteröi sys_test_return (ring 3 boot-paluu).
     table[@intCast(abi.SYS_test_return)] = sysTestReturn;
     // Rekisteröi sys_meminfo (shell meminfo-komento).

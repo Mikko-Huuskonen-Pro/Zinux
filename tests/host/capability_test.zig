@@ -60,3 +60,24 @@ test "revoke slot by index" {
     // Toistuva peruutus epäonnistuu.
     try std.testing.expect(!cap.revokeSlot(slot));
 }
+
+test "get slot type and revoke frees port" {
+    // Tuo porttien ydin — createPort destroyPort testiin.
+    const port = @import("port_core");
+    // Puhdas tila.
+    cap.initCore();
+    port.initCore();
+    // Luo IPC-portti.
+    const port_id = port.createPort() orelse return error.TestFailed;
+    // Luo portti-capability.
+    const slot = cap.createAndInstall(.port, 1, port_id, .{ .send = true }) orelse return error.TestFailed;
+    // Slotti on portti-tyyppiä.
+    try std.testing.expectEqual(cap.CapType.port, cap.getSlotType(slot).?);
+    // Peruuta slotti — vapauttaa portin.
+    try std.testing.expect(cap.revokeSlot(slot));
+    // Slotti mitätöity — tyyppi puuttuu.
+    try std.testing.expect(cap.getSlotType(slot) == null);
+    // Sama port_id kierrätetään uudelleen.
+    const port_id2 = port.createPort() orelse return error.TestFailed;
+    try std.testing.expectEqual(port_id, port_id2);
+}

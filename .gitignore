@@ -14,6 +14,7 @@ kernel/loader/cap_revoke_test_prog.bin
 kernel/loader/ipc_try_recv_test_prog.bin
 kernel/loader/ipc_pending_test_prog.bin
 kernel/loader/cap_get_rights_test_prog.bin
+kernel/loader/cap_get_type_test_prog.bin
 kernel/loader/ipc_block_test_prog.bin
 
 # Editorit
