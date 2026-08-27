@@ -560,6 +560,52 @@ pub fn build(b: *std.Build) void {
     copy_spawn_child_exit_elf.addFileArg(embedded_spawn_child_exit_path);
     copy_spawn_child_exit_elf.step.dependOn(&spawn_child_exit_exe.step);
 
+    // --- Address space A user-ELF (Vaihe 25) — upotetaan kerneliin ---
+    const address_space_a_mod = b.createModule(.{
+        .root_source_file = b.path("userland/address_space_a/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    address_space_a_mod.red_zone = false;
+    address_space_a_mod.stack_protector = false;
+    address_space_a_mod.single_threaded = true;
+    const address_space_a_exe = b.addExecutable(.{
+        .name = "zinux-address-space-a",
+        .root_module = address_space_a_mod,
+    });
+    address_space_a_exe.setLinkerScript(b.path("userland/address_space_a/user.ld"));
+    address_space_a_exe.root_module.addAssemblyFile(b.path("userland/address_space_a/start.S"));
+    b.installArtifact(address_space_a_exe);
+
+    const embedded_address_space_a_path = b.path("kernel/loader/address_space_a_prog.bin");
+    const copy_address_space_a_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_address_space_a_elf.addFileArg(address_space_a_exe.getEmittedBin());
+    copy_address_space_a_elf.addFileArg(embedded_address_space_a_path);
+    copy_address_space_a_elf.step.dependOn(&address_space_a_exe.step);
+
+    // --- Address space B user-ELF (Vaihe 25) — upotetaan kerneliin ---
+    const address_space_b_mod = b.createModule(.{
+        .root_source_file = b.path("userland/address_space_b/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    address_space_b_mod.red_zone = false;
+    address_space_b_mod.stack_protector = false;
+    address_space_b_mod.single_threaded = true;
+    const address_space_b_exe = b.addExecutable(.{
+        .name = "zinux-address-space-b",
+        .root_module = address_space_b_mod,
+    });
+    address_space_b_exe.setLinkerScript(b.path("userland/address_space_b/user.ld"));
+    address_space_b_exe.root_module.addAssemblyFile(b.path("userland/address_space_b/start.S"));
+    b.installArtifact(address_space_b_exe);
+
+    const embedded_address_space_b_path = b.path("kernel/loader/address_space_b_prog.bin");
+    const copy_address_space_b_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_address_space_b_elf.addFileArg(address_space_b_exe.getEmittedBin());
+    copy_address_space_b_elf.addFileArg(embedded_address_space_b_path);
+    copy_address_space_b_elf.step.dependOn(&address_space_b_exe.step);
+
     // --- Cross-IPC userland test ELF (Vaihe 22.3) — upotetaan kerneliin ---
     const cross_ipc_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/cross_ipc_test/main.zig"),
@@ -615,6 +661,8 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_spawn_child_a_elf.step);
     kernel.step.dependOn(&copy_spawn_child_b_elf.step);
     kernel.step.dependOn(&copy_spawn_child_exit_elf.step);
+    kernel.step.dependOn(&copy_address_space_a_elf.step);
+    kernel.step.dependOn(&copy_address_space_b_elf.step);
     kernel.step.dependOn(&copy_cross_ipc_test_elf.step);
     b.installArtifact(kernel);
 

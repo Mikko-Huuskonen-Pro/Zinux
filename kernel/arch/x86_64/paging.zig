@@ -374,3 +374,116 @@ pub fn flushTlb(virt: u64) void {
         : [addr] "r" (virt),
     );
 }
+
+// Kopioi sivutaulumerkintä uuteen fyysiseen osoitteeseen (säilytä liput).
+fn entryWithChildPhys(entry: PageTableEntry, child_phys: u64) PageTableEntry {
+    // Säilytä alkuperäiset liput paitsi osoite.
+    var flags = PageFlags.fromU64(@bitCast(entry));
+    // Päivitä osoitettu kehys.
+    flags.addr = @truncate(child_phys >> 12);
+    // Palauta uusi merkintä.
+    return @bitCast(flags.toU64());
+}
+
+// Syväkopioi yksi sivutaulusivu — PT-taso kopioi PTE:t sellaisenaan.
+fn duplicateTablePage(
+    src_phys: u64,
+    hhdm: u64,
+    alloc_frame: FrameAllocFn,
+    level: u32,
+) ?u64 {
+    // Allokoi uusi sivutaulusivu.
+    const dst_phys = alloc_frame() orelse return null;
+    // Nollaa ennen täyttöä.
+    zeroFrame(dst_phys, hhdm);
+    // Lähde- ja kohdettaulut HHDM:n kautta.
+    const src = physToVirt(src_phys, hhdm);
+    const dst = physToVirt(dst_phys, hhdm);
+    // PT-taso — kopioi kaikki 512 PTE:ä (sama fyysinen kartoitus).
+    if (level >= 3) {
+        // Kopioi koko sivu kerralla.
+        @memcpy(dst[0..512], src[0..512]);
+        // Palauta uuden PT-sivun fyysinen osoite.
+        return dst_phys;
+    }
+    // Käy läpi jokainen merkintä ylemmällä tasolla.
+    var i: usize = 0;
+    while (i < 512) : (i += 1) {
+        // Ohita tyhjät merkinnät.
+        if (!src[i].isPresent()) continue;
+        // Huge page — kopioi sellaisenaan (ei alempaa tasoa).
+        if (src[i].huge == 1) {
+            // Sama kartoitus ja koko.
+            dst[i] = src[i];
+            // Seuraava merkintä.
+            continue;
+        }
+        // Syväkopioi alitason sivutaulu.
+        const child = duplicateTablePage(src[i].physicalAddr(), hhdm, alloc_frame, level + 1) orelse return null;
+        // Kirjoita uusi merkintä samaan liput + uusi osoite.
+        dst[i] = entryWithChildPhys(src[i], child);
+    }
+    // Palauta uuden tason fyysinen osoite.
+    return dst_phys;
+}
+
+// Kopioi yksi sivutaulusivu (512 PTE/PDE) uuteen kehykseen.
+fn copyTablePage(src_phys: u64, hhdm: u64, alloc_frame: FrameAllocFn) ?u64 {
+    // Allokoi kohdesivu.
+    const dst_phys = alloc_frame() orelse return null;
+    // Nollaa kohde.
+    zeroFrame(dst_phys, hhdm);
+    // Kopioi merkinnät.
+    const src = physToVirt(src_phys, hhdm);
+    const dst = physToVirt(dst_phys, hhdm);
+    @memcpy(dst[0..512], src[0..512]);
+    // Palauta uuden sivun fyysinen osoite.
+    return dst_phys;
+}
+
+// Luo prosessin PML4 — kernel jaettu, user-haara erillinen (Vaihe 25).
+pub fn forkAddressSpace(
+    src_pml4_phys: u64,
+    hhdm: u64,
+    user_base: u64,
+    user_page_count: u64,
+    alloc_frame: FrameAllocFn,
+) ?u64 {
+    // Uusi PML4-kehyk.
+    const new_pml4_phys = alloc_frame() orelse return null;
+    zeroFrame(new_pml4_phys, hhdm);
+    const src_pml4 = physToVirt(src_pml4_phys, hhdm);
+    const dst_pml4 = physToVirt(new_pml4_phys, hhdm);
+    // Shallow-kopioi kaikki PML4-merkinnät (jaa kernel-polku).
+    var i: usize = 0;
+    while (i < 512) : (i += 1) {
+        if (!src_pml4[i].isPresent()) continue;
+        dst_pml4[i] = src_pml4[i];
+    }
+    // Higher-half PDPT erillinen — user-kartoituksia varten.
+    const pml4_i = pml4Index(user_base);
+    if (!dst_pml4[pml4_i].isPresent()) return new_pml4_phys;
+    const src_pdpt_phys = dst_pml4[pml4_i].physicalAddr();
+    const new_pdpt_phys = copyTablePage(src_pdpt_phys, hhdm, alloc_frame) orelse return null;
+    dst_pml4[pml4_i] = entryWithChildPhys(dst_pml4[pml4_i], new_pdpt_phys);
+    const dst_pdpt = physToVirt(new_pdpt_phys, hhdm);
+    // Kopioi PD-tasot user-alueen yli — erilliset PT:t per prosessi.
+    const pd_start = pdIndex(user_base);
+    const pd_end = pdIndex(user_base + user_page_count * PAGE_SIZE - 1) + 1;
+    const pdpt_i = pdptIndex(user_base);
+    if (!dst_pdpt[pdpt_i].isPresent() or dst_pdpt[pdpt_i].huge == 1) return new_pml4_phys;
+    const pd_table = physToVirt(dst_pdpt[pdpt_i].physicalAddr(), hhdm);
+    var pd_i = pd_start;
+    while (pd_i < pd_end) : (pd_i += 1) {
+        if (!pd_table[pd_i].isPresent() or pd_table[pd_i].huge == 1) continue;
+        const new_pd_phys = copyTablePage(pd_table[pd_i].physicalAddr(), hhdm, alloc_frame) orelse return null;
+        pd_table[pd_i] = entryWithChildPhys(pd_table[pd_i], new_pd_phys);
+    }
+    return new_pml4_phys;
+}
+
+// Syväkopioi koko PML4-puu — uusi CR3 prosessille (testaus / tuleva).
+pub fn duplicatePageTables(src_pml4_phys: u64, hhdm: u64, alloc_frame: FrameAllocFn) ?u64 {
+    // Kopioi PML4-tasosta alkaen koko hierarkia.
+    return duplicateTablePage(src_pml4_phys, hhdm, alloc_frame, 0);
+}

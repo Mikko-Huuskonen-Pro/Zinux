@@ -173,6 +173,9 @@ pub fn runAll() void {
     // Vaihe 24 — sys_exit + sys_wait spawn-lapsella (exit/wait elinkaari).
     const wait_syscall = @import("syscall/wait_syscall.zig");
     wait_syscall.runBootTest();
+    // Vaihe 25 — CR3 per prosessi + sama VA eri osoiteavaruuksissa.
+    const address_space_syscall = @import("syscall/address_space_syscall.zig");
+    address_space_syscall.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

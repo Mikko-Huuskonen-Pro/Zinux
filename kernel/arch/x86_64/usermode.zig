@@ -93,6 +93,8 @@ pub fn activeRing3Pid() u64 {
 pub fn returnToKernelTestContinue() noreturn {
     // Palauta edellinen prosessikonteksti ennen kernel-jatkoa.
     _ = process.setCurrentPid(usermode_saved_pid);
+    // Palauta kernelin CR3 ennen boot-pinolle hyppyä (Vaihe 25).
+    vmm.switchToKernel();
     // Delegoi assembly-toteutukselle.
     usermodeReturnToKernel();
 }
@@ -111,6 +113,9 @@ pub fn enterUserAs(entry: u64, user_stack_top: u64, pid: u64) void {
     usermode_ring3_pid = pid;
     // Aseta current pid userland-syscallien ajaksi.
     _ = process.setCurrentPid(pid);
+    // Vaihda prosessin osoiteavaruuteen ennen iretq (Vaihe 25).
+    const pml4 = process.getPageTableOrDefault(pid, vmm.pml4Phys());
+    vmm.switchToAddressSpace(pml4);
     // User segmenttivalitsimet RPL 3.
     const user_cs: u64 = gdt.USER_CODE_SEL | 3;
     const user_ss: u64 = gdt.USER_DATA_SEL | 3;

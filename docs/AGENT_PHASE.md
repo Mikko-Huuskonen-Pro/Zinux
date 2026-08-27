@@ -5,9 +5,9 @@
 
 ---
 
-## Nykyinen vaihe: **25** ⬜
+## Nykyinen vaihe: **26** ⬜
 
-**Branch**: `cursor/process-exit-wait-4d97`  
+**Branch**: `cursor/process-address-space-4d97`  
 **PR**: (luodaan pushin jälkeen)  
 **Zig**: 0.16.0
 
@@ -40,11 +40,12 @@
 | 22 Cross-process IPC | ✅ |
 | 23 Prosessilista (sys_ps) | ✅ |
 | 24 Prosessin elinkaari (exit/wait) | ✅ |
+| 25 Osoiteavaruudet per prosessi | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 25)
+### Tämän kierroksen prioriteetti (Vaihe 26)
 
-**Osoiteavaruudet per prosessi** — CR3 + prosessikohtainen sivutaulu.  
-Katso `docs/ROADMAP.md` vaihe 25.
+**Scheduler + prosessit** — timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee.  
+Katso `docs/ROADMAP.md` vaihe 26.
 
 ---
 

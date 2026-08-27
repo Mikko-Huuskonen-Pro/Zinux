@@ -474,15 +474,15 @@ zig build boot-test
 
 ---
 
-## Vaihe 25 — Osoiteavaruudet per prosessi ⬜
+## Vaihe 25 — Osoiteavaruudet per prosessi ✅
 
 **Tavoite**: Jokaisella prosessilla oma sivutaulu (CR3); ELF-loader kartoittaa vain prosessin osoiteavaruuteen.
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 25.1 | `Process.page_table` + CR3-vaihto | `process_core.zig`, `vmm.zig` | ⬜ Page table per pid OK |
-| 25.2 | ELF-loader prosessikohtaiseen tauluun | `loader/elf.zig`, `spawn.zig` | ⬜ ELF per address space OK |
-| 25.3 | Boot-testi: kaksi ELF:ää sama VA, eri prosessit | boot-testit | ⬜ Address space OK |
+| 25.1 | `Process.page_table` + CR3-vaihto | `process_core.zig`, `vmm.zig` | ✅ Page table per pid OK |
+| 25.2 | ELF-loader prosessikohtaiseen tauluun | `loader/elf.zig`, `spawn.zig` | ✅ ELF per address space OK |
+| 25.3 | Boot-testi: kaksi ELF:ää sama VA, eri prosessit | boot-testit | ✅ Address space OK |
 
 **Testi**:
 ```bash
