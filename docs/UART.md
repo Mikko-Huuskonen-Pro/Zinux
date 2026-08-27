@@ -16,7 +16,7 @@ This experiment is expected to guide the architecture of Zinux for the first mon
 
 ⸻
 
-1. The hypothesis
+### 1. The hypothesis 
 
 Traditional operating systems generally treat a driver as a persistent software component.
 ```
@@ -64,7 +64,7 @@ The driver is therefore treated less like a permanent OS component and more like
 
 ⸻
 
-2. The core principle
+### 2. The core principle
 
 The central security principle is:
 
@@ -92,7 +92,7 @@ AI-generated code is not trusted merely because an AI generated it.
 
 ⸻
 
-3. Plan, Policy and Implementation
+### 3. Plan, Policy and Implementation
 
 Zinux separates three concepts that are often mixed together in traditional driver development.
 
