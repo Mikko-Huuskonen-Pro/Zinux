@@ -53,6 +53,8 @@ pub fn isRegistered(num: u64) bool {
         16 => true,
         // sys_ipc_flush.
         17 => true,
+        // sys_cap_get_resource.
+        18 => true,
         // Kaikki muut slotit tyhjät tai taulukon ulkopuolella.
         else => false,
     };

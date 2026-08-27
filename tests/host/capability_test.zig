@@ -81,3 +81,27 @@ test "get slot type and revoke frees port" {
     const port_id2 = port.createPort() orelse return error.TestFailed;
     try std.testing.expectEqual(port_id, port_id2);
 }
+
+test "get slot resource requires read on delegate" {
+    // Tuo porttien ydin — createPort testiin.
+    const port = @import("port_core");
+    // Puhdas tila.
+    cap.initCore();
+    port.initCore();
+    // Luo IPC-portti.
+    const port_id = port.createPort() orelse return error.TestFailed;
+    // Luo portti-capability read + grant + send.
+    const slot = cap.createAndInstall(.port, 1, port_id, .{
+        .read = true,
+        .send = true,
+        .grant = true,
+    }) orelse return error.TestFailed;
+    // Parent-slot palauttaa port_id resurssitunnisteena.
+    try std.testing.expectEqual(@as(u64, port_id), cap.getSlotResource(slot).?);
+    // Delegoi send-only ilman read:ia.
+    const derived = cap.delegateSlot(slot, .{ .send = true }) orelse return error.TestFailed;
+    // Derived-slotilla ei read-oikeutta — getSlotResource palauttaa silti resurssin ytimessä.
+    try std.testing.expectEqual(@as(u64, port_id), cap.getSlotResource(derived).?);
+    // Derived-slotilla ei read-oikeutta dispatch-tasolla (testataan bootissa).
+    try std.testing.expect(!cap.slotHasRights(derived, .{ .read = true }));
+}

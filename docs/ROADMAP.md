@@ -311,6 +311,100 @@ zig build run
 
 ---
 
+## Vaihe 18 — Capability resurssitunnisteen kysely ✅
+
+**Tavoite**: Ring 3 voi lukea capability-slotin resurssitunnisteen (esim. port_id) `sys_cap_get_resource`-syscallilla; kysely vaatii read-oikeuden.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 18.1 | sys_cap_get_resource | `dispatch.zig`, `capability_core.zig`, `cap_get_resource.zig` | ✅ Cap get resource syscall OK |
+| 18.2 | Userland cap.getResource | `userland/lib/cap.zig`, `userland/cap_get_resource_test/` | ✅ userland cap get resource OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cap get resource syscall OK, userland cap get resource OK, Userland cap get resource test OK
+```
+
+---
+
+## Lyhyen aikavälin suunnitelma (vaiheet 19–22)
+
+> **Prioriteetti**: ensin IPC-introspektion viimeistely (19), sitten cross-process IPC (20–22).
+> Boot-testit kasvavat jokaisella vaiheella — boot-aika on jo ~3 min; refaktorointi myöhemmin tarpeen.
+
+| Vaihe | Teema | Tavoite |
+|-------|-------|---------|
+| **19** | IPC jonon kapasiteetti | `pending` / `flush` -kolmikon täydennys |
+| **20** | Prosessitaulukko | Erilliset capability-slotit per pid |
+| **21** | Prosessin luonti | Toinen user-ELF ring 3:een (`sys_spawn`) |
+| **22** | Cross-process IPC | Viesti prosessista A → prosessiin B |
+
+---
+
+## Vaihe 19 — IPC jonon kapasiteetti ⬜
+
+**Tavoite**: Ring 3 voi kysyä capability-slotin portin maksimijonon syvyyttä `sys_ipc_queue_capacity`-syscallilla (täydentää `pending` + `flush`).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 19.1 | sys_ipc_queue_capacity | `dispatch.zig`, `port_core.zig`, `ipc_queue_capacity_syscall.zig` | ⬜ invoke + IPC queue capacity syscall OK |
+| 19.2 | Userland ipc.queueCapacity | `userland/lib/ipc.zig`, `userland/ipc_queue_capacity_test/` | ⬜ userland ipc queue capacity OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC queue capacity syscall OK, userland ipc queue capacity OK, Userland IPC queue capacity test OK
+```
+
+---
+
+## Vaihe 20 — Prosessitaulukko ja capabilityt per prosessi ⬜
+
+**Tavoite**: Kernel erottaa capability-slotit prosessikohtaisesti; nykyinen yksi stub-prosessi (pid 1) laajenee prosessitaulukoksi.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 20.1 | Process-rakenne + slotit per pid | `kernel/sched/process.zig`, `capability_core.zig` | ⬜ lookupSlot(pid, slot) |
+| 20.2 | Syscall-konteksti: current pid | `dispatch.zig`, `syscall_entry` | ⬜ getpid palauttaa oikean pid:n |
+| 20.3 | Boot-testi: kaksi prosessia samassa taulukossa | host-testit + kernel smoke | ⬜ Process table OK |
+
+**Huom**: Vaihe ei vielä käynnistä toista ELF:ää — valmistelee cross-process IPC:tä.
+
+---
+
+## Vaihe 21 — Prosessin luonti (sys_spawn) ⬜
+
+**Tavoite**: Kernel voi käynnistää toisen user-ELF:n omana prosessina ring 3:ssa (ELF-loader + erillinen pinokartoitus).
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 21.1 | sys_spawn(elf_path stub / embedded) | `kernel/syscall/spawn_syscall.zig`, `dispatch.zig` | ⬜ Spawn syscall OK |
+| 21.2 | Toisen prosessin pinon/kartan erottelu | `loader/elf.zig`, `sched/process.zig` | ⬜ Two processes boot OK |
+| 21.3 | Userland spawn wrapper (valinnainen) | `userland/lib/spawn.zig` | ⬜ ring 3 spawn demo |
+
+**Testi**: Boot lataa kaksi kevyttä testi-ELF:ää peräkkäin eri pideillä — molemmat tulostavat serialiin.
+
+---
+
+## Vaihe 22 — Cross-process IPC ⬜
+
+**Tavoite**: Prosessi A lähettää viestin prosessi B:n porttiin capabilityn kautta; portti-capability siirretty/delegoitu toiselle prosessille.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 22.1 | Capability siirto prosessien välillä | `capability_core.zig`, `sys_cap_transfer` (tai spawn + cap table) | ⬜ Cap transfer OK |
+| 22.2 | IPC send/recv cross-pid | `port.zig`, `dispatch.zig` | ⬜ Cross-process send OK |
+| 22.3 | Boot-testi: A send → B recv | `cross_ipc_test/` userland + kernel | ⬜ Cross-process IPC test OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: Cross-process IPC syscall OK, userland cross ipc OK, Userland cross IPC test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -332,6 +426,11 @@ graph TD
     V14 --> V15[Vaihe 15: Cap get rights]
     V15 --> V16[Vaihe 16: Cap get type]
     V16 --> V17[Vaihe 17: IPC flush]
+    V17 --> V18[Vaihe 18: Cap get resource]
+    V18 --> V19[Vaihe 19: IPC queue capacity]
+    V19 --> V20[Vaihe 20: Process table]
+    V20 --> V21[Vaihe 21: sys_spawn]
+    V21 --> V22[Vaihe 22: Cross-process IPC]
 ```
 
 ---

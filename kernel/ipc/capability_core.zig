@@ -240,6 +240,18 @@ pub fn getSlotType(slot_idx: u32) ?CapType {
     return obj.typ;
 }
 
+// Hae capability-slotin resurssitunniste — null jos slotti mitätöity.
+pub fn getSlotResource(slot_idx: u32) ?u64 {
+    // Hae slotti indeksillä.
+    const slot = lookupSlot(slot_idx) orelse return null;
+    // Slotti ilman objektiviitettä on mitätöity.
+    if (slot.object_id == 0) return null;
+    // Hae taustalla oleva objekti.
+    const obj = getObject(slot.object_id) orelse return null;
+    // Palauta tyypin spesifinen resurssitunniste (port_id jne.).
+    return obj.object_id;
+}
+
 // Tarkista onko slotilla pyydetty oikeus.
 pub fn slotHasRights(slot_idx: u32, requested: Rights) bool {
     // Hae slotti.

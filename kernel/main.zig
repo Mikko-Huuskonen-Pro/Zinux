@@ -248,6 +248,9 @@ fn kmain() noreturn {
     // Vaihe 17.2 — userland ipc.flush (ring 3 queue flush).
     const ipc_flush_userland = @import("ipc_flush_userland.zig");
     ipc_flush_userland.runBootTest();
+    // Vaihe 18 — sys_cap_get_resource + read-oikeus + userland cap.getResource.
+    const cap_get_resource = @import("cap_get_resource.zig");
+    cap_get_resource.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

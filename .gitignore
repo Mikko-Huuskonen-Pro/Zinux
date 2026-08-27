@@ -16,6 +16,7 @@ kernel/loader/ipc_pending_test_prog.bin
 kernel/loader/cap_get_rights_test_prog.bin
 kernel/loader/cap_get_type_test_prog.bin
 kernel/loader/ipc_flush_test_prog.bin
+kernel/loader/cap_get_resource_test_prog.bin
 kernel/loader/ipc_block_test_prog.bin
 
 # Editorit
