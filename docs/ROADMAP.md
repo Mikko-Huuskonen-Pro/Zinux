@@ -192,6 +192,23 @@ zig build run
 
 ---
 
+## Vaihe 11 — Estävä IPC recv ✅
+
+**Tavoite**: `sys_ipc_recv` blokkaa kun portin jono on tyhjä; timer IRQ herättää odottavan recv:n boot-testissä.
+
+| # | Tehtävä | Tiedosto | Tila |
+|---|---------|----------|------|
+| 11.1 | Blocking recv + timer-wake | `kernel/syscall/ipc_block_core.zig`, `ipc_block.zig`, `dispatch.zig` | ✅ IPC block OK |
+| 11.2 | Userland blocking ipc.recv | `userland/ipc_block_test/`, `ipc_block_userland.zig` | ✅ userland ipc block OK |
+
+**Testi**:
+```bash
+zig build run
+# Odotettu serial: IPC block OK, userland ipc block OK, Userland IPC block test OK
+```
+
+---
+
 ## Riippuvuudet vaiheiden välillä
 
 ```mermaid
@@ -206,6 +223,7 @@ graph TD
     V7 --> V8[Vaihe 8: IPC userland]
     V8 --> V9[Vaihe 9: Cap delegate]
     V9 --> V10[Vaihe 10: Cap create]
+    V10 --> V11[Vaihe 11: Blocking IPC]
 ```
 
 ---

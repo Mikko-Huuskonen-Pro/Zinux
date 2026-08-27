@@ -6,6 +6,8 @@
 
 // Tuo lokitus milestone-viestiin (kerran bootissa).
 const log = @import("log.zig");
+// Tuo IPC block — timer-wake lähetys estävää recv:ää varten.
+const ipc_block = @import("../ipc/ipc_block.zig");
 
 // Montako tickiä ennen vahvistuslogia (~0,5 s @ 100 Hz idle-silmukassa).
 // Montako tickiä ennen vahvistuslogia (ensimmäinen IRQ vahvistaa PIT-polun).
@@ -20,6 +22,8 @@ var milestone_logged: bool = false;
 export fn timerOnIrqC() callconv(.c) void {
     // Kasvata tick-laskuria.
     tick_count += 1;
+    // IPC block boot-testi — timer lähettää viestin tyhjään porttiin.
+    ipc_block.onTimerTick(tick_count);
     // Loggaa kerran kun MILESTONE saavutettu.
     if (!milestone_logged and tick_count >= MILESTONE) {
         // Merkitse logattu.

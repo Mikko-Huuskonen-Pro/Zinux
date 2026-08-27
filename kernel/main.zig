@@ -212,6 +212,12 @@ fn kmain() noreturn {
     idt.registerHandler(pic.TIMER_VECTOR, idt.timerHandlerAddr());
     // Vahvista Vaihe 3 timer-infrastruktuuri.
     log.info("Phase 3 timer OK");
+    // Vaihe 11.1 — blocking sys_ipc_recv + timer-wake boot-testi (kernel recv).
+    const ipc_block = @import("ipc/ipc_block.zig");
+    ipc_block.runBootTest();
+    // Vaihe 11.2 — userland blocking ipc.recv ring 3:ssa (timer-wake).
+    const ipc_block_userland = @import("ipc_block_userland.zig");
+    ipc_block_userland.runBootTest();
     // Logita SMP CPU-määrä Limine-vastauksesta (stub).
     smp.initAndLog();
     // Pakota pit_ticks linkitys (timerOnIrqC).

@@ -144,6 +144,8 @@ pub fn send(port_id: u32, payload: []const u8) PortError!usize {
     p.tail = @intCast((@as(usize, p.tail) + 1) % MAX_QUEUE);
     // Kasvata viestien määrää.
     p.count +%= 1;
+    // Muistiesto — IRQ-lähetys näkyy recv-kuuntelijalle.
+    asm volatile ("" ::: .{ .memory = true });
     // Palauta lähetettyjen tavujen määrä.
     return payload.len;
 }
@@ -154,6 +156,8 @@ pub fn recv(port_id: u32, buf: []u8) PortError!usize {
     if (!initialized) return error.NotInitialized;
     // Hae portti.
     const p = getPort(port_id) orelse return error.NotFound;
+    // Muistiesto — näe IRQ-päivitetty jono.
+    asm volatile ("" ::: .{ .memory = true });
     // Tyhjä jono → ei viestejä.
     if (p.count == 0) return error.Empty;
     // Hae viesti head-indeksistä.

@@ -8,6 +8,8 @@
 const core = @import("port_core.zig");
 // Tuo capability-tarkistukset send/recv-oikeuksille.
 const cap = @import("capability_core.zig");
+// Tuo estävän recv-ydin — odotus ennen uudelleenyritystä.
+const ipc_block_core = @import("../syscall/ipc_block_core.zig");
 // Tuo lokitus boot-viesteihin.
 const log = @import("../lib/log.zig");
 
@@ -70,6 +72,24 @@ pub fn recvViaSlot(slot_idx: u32, buf: []u8) PortError!usize {
     const port_id: u32 = @intCast(obj.object_id);
     // Vastaanota portista.
     return core.recv(port_id, buf);
+}
+
+// Vastaanota capability-slotin kautta — blokkaa kunnes viesti saapuu.
+pub fn recvViaSlotBlocking(slot_idx: u32, buf: []u8) PortError!usize {
+    // Yritä recv kunnes onnistuu tai muu virhe.
+    while (true) {
+        // Yritä non-blocking recv.
+        const len = recvViaSlot(slot_idx, buf) catch |err| {
+            // Muu virhe kuin tyhjä jono — palauta heti.
+            if (err != error.Empty) return err;
+            // Tyhjä jono — odota timer IRQ / lähettäjää.
+            ipc_block_core.waitForMessage();
+            // Yritä uudelleen.
+            continue;
+        };
+        // Onnistui — palauta pituus.
+        return len;
+    }
 }
 
 // Boot-testi — luo portti + cap, send/recv "IPC" viesti.

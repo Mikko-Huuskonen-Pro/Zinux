@@ -95,3 +95,8 @@ test {
 test {
     _ = @import("cap_core_test.zig");
 }
+
+// Tuo IPC-estävän recv-ydin-yksikkötestit.
+test {
+    _ = @import("ipc_block_test.zig");
+}

@@ -22,6 +22,8 @@ const user_access = @import("../arch/x86_64/user_access.zig");
 const port = @import("../ipc/port.zig");
 // Tuo IPC-syscall-ydin — PortError → ABI.
 const ipc_core = @import("ipc_syscall_core.zig");
+// Tuo estävän recv-ydin — odotusloop ennen uudelleenyritystä.
+const ipc_block_core = @import("ipc_block_core.zig");
 // Tuo capability-ydin — delegateSlot lookup.
 const cap = @import("../ipc/capability_core.zig");
 // Tuo capability-syscall-ydin — rights_mask dekoodaus.
@@ -304,8 +306,8 @@ fn sysIpcRecv(a1: u64, a2: u64, a3: u64, _: u64, _: u64, _: u64) i64 {
     if (user_len == 0) return 0;
     // Kernel-puskuri vastaanotolle.
     var kbuf: [port.MAX_MSG_SIZE]u8 = undefined;
-    // Vastaanota slotin kautta (capability-tarkistus port.zig:ssä).
-    const recv_len = port.recvViaSlot(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
+    // Vastaanota slotin kautta — blokkaa kunnes viesti saapuu.
+    const recv_len = port.recvViaSlotBlocking(slot_idx, &kbuf) catch |err| return ipc_core.mapPortError(err);
     // Kopioitavien tavujen enimmäismäärä.
     const copy_len = @min(recv_len, @as(usize, @intCast(user_len)));
     // SMAP: salli user-sivujen kirjoitus kernelistä.

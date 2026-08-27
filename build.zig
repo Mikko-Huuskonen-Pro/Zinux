@@ -238,6 +238,31 @@ pub fn build(b: *std.Build) void {
     copy_cap_create_test_elf.addFileArg(embedded_cap_create_test_path);
     copy_cap_create_test_elf.step.dependOn(&cap_create_test_exe.step);
 
+    // --- IPC block userland test ELF (Vaihe 11.2) — upotetaan kerneliin ---
+    const ipc_block_test_mod = b.createModule(.{
+        .root_source_file = b.path("userland/ipc_block_test/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    ipc_block_test_mod.red_zone = false;
+    ipc_block_test_mod.stack_protector = false;
+    ipc_block_test_mod.single_threaded = true;
+    ipc_block_test_mod.code_model = .large;
+    ipc_block_test_mod.addImport("ipc", ipc_lib_mod);
+    const ipc_block_test_exe = b.addExecutable(.{
+        .name = "zinux-ipc-block-test",
+        .root_module = ipc_block_test_mod,
+    });
+    ipc_block_test_exe.setLinkerScript(b.path("userland/ipc_block_test/user.ld"));
+    ipc_block_test_exe.root_module.addAssemblyFile(b.path("userland/ipc_block_test/start.S"));
+    b.installArtifact(ipc_block_test_exe);
+
+    const embedded_ipc_block_test_path = b.path("kernel/loader/ipc_block_test_prog.bin");
+    const copy_ipc_block_test_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_ipc_block_test_elf.addFileArg(ipc_block_test_exe.getEmittedBin());
+    copy_ipc_block_test_elf.addFileArg(embedded_ipc_block_test_path);
+    copy_ipc_block_test_elf.step.dependOn(&ipc_block_test_exe.step);
+
     const kernel = b.addExecutable(.{
         .name = "zinux-kernel",
         .root_module = kernel_mod,
@@ -256,6 +281,7 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_ipc_test_elf.step);
     kernel.step.dependOn(&copy_cap_test_elf.step);
     kernel.step.dependOn(&copy_cap_create_test_elf.step);
+    kernel.step.dependOn(&copy_ipc_block_test_elf.step);
     b.installArtifact(kernel);
 
     // --- Host-testit ---
@@ -346,6 +372,11 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
     });
+    const ipc_block_core_mod = b.createModule(.{
+        .root_source_file = b.path("kernel/syscall/ipc_block_core.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
     const host_test_mod = b.createModule(.{
         .root_source_file = b.path("tests/host/root.zig"),
         .target = b.graph.host,
@@ -367,6 +398,7 @@ pub fn build(b: *std.Build) void {
     host_test_mod.addImport("ipc_core", ipc_core_mod);
     host_test_mod.addImport("cap_syscall_core", cap_syscall_core_mod);
     host_test_mod.addImport("cap_core", cap_core_mod);
+    host_test_mod.addImport("ipc_block_core", ipc_block_core_mod);
     const host_tests = b.addTest(.{
         .root_module = host_test_mod,
     });
