@@ -180,7 +180,7 @@ Zinux 1.0 requires:
 The long-term intention is for these requirements to become backed by actual automated tests rather than manual claims.
 
 1.0 is not a promise. It is a state the system must prove.
-
+```
 ## Kääntäminen
 
 ```bash
