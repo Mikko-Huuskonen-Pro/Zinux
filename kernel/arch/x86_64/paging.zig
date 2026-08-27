@@ -375,6 +375,29 @@ pub fn flushTlb(virt: u64) void {
     );
 }
 
+// Korvaa jaettu PT tyhjällä — erillinen spawn/user-ELF kartoitus per prosessi (Vaihe 25/26).
+pub fn isolateUserPtForVirt(
+    pml4_phys: u64,
+    hhdm: u64,
+    virt: u64,
+    alloc_frame: FrameAllocFn,
+) bool {
+    const pml4 = physToVirt(pml4_phys, hhdm);
+    const pml4e = &pml4[pml4Index(virt)];
+    if (!pml4e.isPresent()) return false;
+    const pdpt = physToVirt(pml4e.physicalAddr(), hhdm);
+    const pdpte = &pdpt[pdptIndex(virt)];
+    if (!pdpte.isPresent() or pdpte.huge == 1) return false;
+    const pd = physToVirt(pdpte.physicalAddr(), hhdm);
+    const pde = &pd[pdIndex(virt)];
+    if (!pde.isPresent() or pde.huge == 1) return false;
+    const new_pt_phys = alloc_frame() orelse return false;
+    zeroFrame(new_pt_phys, hhdm);
+    pde.* = entryWithChildPhys(pde.*, new_pt_phys);
+    flushTlb(virt);
+    return true;
+}
+
 // Kopioi sivutaulumerkintä uuteen fyysiseen osoitteeseen (säilytä liput).
 fn entryWithChildPhys(entry: PageTableEntry, child_phys: u64) PageTableEntry {
     // Säilytä alkuperäiset liput paitsi osoite.

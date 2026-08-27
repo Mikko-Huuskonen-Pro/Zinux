@@ -46,12 +46,24 @@ extern fn userEntryEnd() void;
 // Kernel pinon osoite ennen iretq:ä — export assemblylle.
 pub export var usermode_saved_kernel_rsp: u64 = 0;
 // Palautettava pid ennen ring 3 -hyppyä (sys_test_return / sys_exit palauttaa).
-var usermode_saved_pid: u64 = process.BOOT_PID;
+pub var usermode_saved_pid: u64 = process.BOOT_PID;
 // Ring 3:ssa suoritettava prosessi — varmuus currentPid:lle syscallien aikana (Vaihe 24).
 pub var usermode_ring3_pid: u64 = process.BOOT_PID;
 
 // Siirry ring 3:een — usermode_jump.S iretq (palaa ret:llä sys_test_return:in kautta).
 extern fn usermodeEnterIret(
+    entry: u64,
+    user_stack: u64,
+    user_cs: u64,
+    user_ss: u64,
+    rflags: u64,
+) callconv(.c) void;
+
+// Tallenna kernel RSP boot-testiin paluuta varten — ei ylikirjoiteta scheduler-vaihdoissa.
+extern fn usermodeSaveKernelRsp() callconv(.c) void;
+
+// Siirry ring 3:een ilman kernel RSP-tallennusta — scheduler jatkaa samaan boot-pinoon.
+extern fn usermodeEnterIretNoSave(
     entry: u64,
     user_stack: u64,
     user_cs: u64,
@@ -89,6 +101,12 @@ pub fn activeRing3Pid() u64 {
     return usermode_ring3_pid;
 }
 
+// Tallenna nykyinen kernel RSP kerran ennen scheduler-silmukkaa (Vaihe 26).
+pub fn saveKernelRspOnce() void {
+    // Delegoi assembly-toteutukselle — usermode_saved_kernel_rsp.
+    usermodeSaveKernelRsp();
+}
+
 // Palaa kerneliin sys_test_return/sys_exit-käsittelijästä.
 pub fn returnToKernelTestContinue() noreturn {
     // Palauta edellinen prosessikonteksti ennen kernel-jatkoa.
@@ -123,6 +141,22 @@ pub fn enterUserAs(entry: u64, user_stack_top: u64, pid: u64) void {
     const rflags: u64 = 0x2;
     // Siirry ring 3:een — palaa ret:llä sys_test_return:in kautta.
     usermodeEnterIret(entry, user_stack_top, user_cs, user_ss, rflags);
+}
+
+// Siirry ring 3:een scheduler-polulla — ei ylikirjoita usermode_saved_kernel_rsp (Vaihe 26).
+pub fn enterUserScheduled(rip: u64, user_rsp: u64, rflags: u64, pid: u64) void {
+    // Tallenna ring 3 -prosessi erikseen (Vaihe 24 sys_exit).
+    usermode_ring3_pid = pid;
+    // Aseta current pid userland-syscallien ajaksi.
+    _ = process.setCurrentPid(pid);
+    // Vaihda prosessin osoiteavaruuteen ennen iretq (Vaihe 25).
+    const pml4 = process.getPageTableOrDefault(pid, vmm.pml4Phys());
+    vmm.switchToAddressSpace(pml4);
+    // User segmenttivalitsimet RPL 3.
+    const user_cs: u64 = gdt.USER_CODE_SEL | 3;
+    const user_ss: u64 = gdt.USER_DATA_SEL | 3;
+    // Siirry ring 3:een — boot RSP säilyy scheduler_boot_rsp:ssa.
+    usermodeEnterIretNoSave(rip, user_rsp, user_cs, user_ss, rflags);
 }
 
 // Boot-testi — ring 3 sys_write("hello") + paluu kerneliin.

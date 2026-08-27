@@ -5,10 +5,10 @@
 
 ---
 
-## Nykyinen vaihe: **26** ⬜
+## Nykyinen vaihe: **27** ⬜
 
-**Branch**: `cursor/process-address-space-4d97`  
-**PR**: #4 (base: #3 exit/wait)  
+**Branch**: `cursor/scheduler-preempt-4d97`  
+**PR**: (luodaan pushin jälkeen)  
 **Zig**: 0.16.0
 
 ### Valmiit vaiheet (älä tee uudelleen ellei regressio)
@@ -41,11 +41,12 @@
 | 23 Prosessilista (sys_ps) | ✅ |
 | 24 Prosessin elinkaari (exit/wait) | ✅ |
 | 25 Osoiteavaruudet per prosessi | ✅ |
+| 26 Scheduler + prosessit | ✅ |
 
-### Tämän kierroksen prioriteetti (Vaihe 26)
+### Tämän kierroksen prioriteetti (Vaihe 27)
 
-**Scheduler + prosessit** — timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee.  
-Katso `docs/ROADMAP.md` vaihe 26.
+**Cross-process IPC userland-demo** — spawn + cap transfer + recv ilman kernel-orchestraatiota.  
+Katso `docs/ROADMAP.md` vaihe 27.
 
 ---
 

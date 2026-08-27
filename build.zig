@@ -606,6 +606,52 @@ pub fn build(b: *std.Build) void {
     copy_address_space_b_elf.addFileArg(embedded_address_space_b_path);
     copy_address_space_b_elf.step.dependOn(&address_space_b_exe.step);
 
+    // --- Preempt A user-ELF (Vaihe 26) — upotetaan kerneliin ---
+    const preempt_a_mod = b.createModule(.{
+        .root_source_file = b.path("userland/preempt_a/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    preempt_a_mod.red_zone = false;
+    preempt_a_mod.stack_protector = false;
+    preempt_a_mod.single_threaded = true;
+    const preempt_a_exe = b.addExecutable(.{
+        .name = "zinux-preempt-a",
+        .root_module = preempt_a_mod,
+    });
+    preempt_a_exe.setLinkerScript(b.path("userland/preempt_a/user.ld"));
+    preempt_a_exe.root_module.addAssemblyFile(b.path("userland/preempt_a/start.S"));
+    b.installArtifact(preempt_a_exe);
+
+    const embedded_preempt_a_path = b.path("kernel/loader/preempt_a_prog.bin");
+    const copy_preempt_a_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_preempt_a_elf.addFileArg(preempt_a_exe.getEmittedBin());
+    copy_preempt_a_elf.addFileArg(embedded_preempt_a_path);
+    copy_preempt_a_elf.step.dependOn(&preempt_a_exe.step);
+
+    // --- Preempt B user-ELF (Vaihe 26) — upotetaan kerneliin ---
+    const preempt_b_mod = b.createModule(.{
+        .root_source_file = b.path("userland/preempt_b/main.zig"),
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+    preempt_b_mod.red_zone = false;
+    preempt_b_mod.stack_protector = false;
+    preempt_b_mod.single_threaded = true;
+    const preempt_b_exe = b.addExecutable(.{
+        .name = "zinux-preempt-b",
+        .root_module = preempt_b_mod,
+    });
+    preempt_b_exe.setLinkerScript(b.path("userland/preempt_b/user.ld"));
+    preempt_b_exe.root_module.addAssemblyFile(b.path("userland/preempt_b/start.S"));
+    b.installArtifact(preempt_b_exe);
+
+    const embedded_preempt_b_path = b.path("kernel/loader/preempt_b_prog.bin");
+    const copy_preempt_b_elf = b.addSystemCommand(&.{ "cp", "-f" });
+    copy_preempt_b_elf.addFileArg(preempt_b_exe.getEmittedBin());
+    copy_preempt_b_elf.addFileArg(embedded_preempt_b_path);
+    copy_preempt_b_elf.step.dependOn(&preempt_b_exe.step);
+
     // --- Cross-IPC userland test ELF (Vaihe 22.3) — upotetaan kerneliin ---
     const cross_ipc_test_mod = b.createModule(.{
         .root_source_file = b.path("userland/cross_ipc_test/main.zig"),
@@ -663,6 +709,8 @@ pub fn build(b: *std.Build) void {
     kernel.step.dependOn(&copy_spawn_child_exit_elf.step);
     kernel.step.dependOn(&copy_address_space_a_elf.step);
     kernel.step.dependOn(&copy_address_space_b_elf.step);
+    kernel.step.dependOn(&copy_preempt_a_elf.step);
+    kernel.step.dependOn(&copy_preempt_b_elf.step);
     kernel.step.dependOn(&copy_cross_ipc_test_elf.step);
     b.installArtifact(kernel);
 

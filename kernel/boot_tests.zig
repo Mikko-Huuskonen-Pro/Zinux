@@ -176,6 +176,9 @@ pub fn runAll() void {
     // Vaihe 25 — CR3 per prosessi + sama VA eri osoiteavaruuksissa.
     const address_space_syscall = @import("syscall/address_space_syscall.zig");
     address_space_syscall.runBootTest();
+    // Vaihe 26 — timer-preempt scheduler + prosessien vuorottelu.
+    const preempt_syscall = @import("syscall/preempt_syscall.zig");
+    preempt_syscall.runBootTest();
     // Kaikki integraatiotestit ajettu.
     log.info("All boot tests OK");
 }

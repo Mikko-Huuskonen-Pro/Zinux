@@ -8,6 +8,8 @@
 const paging = @import("../arch/x86_64/paging.zig");
 // Tuo PMM — fyysisten kehysten allokointi uusille sivutauluille.
 const pmm = @import("pmm.zig");
+// Tuo lokitus — spawn PT -eristysvirheet.
+const log = @import("../lib/log.zig");
 
 // HHDM-offset — muunna phys → virt lisäämällä tämä.
 var hhdm_offset: u64 = 0;
@@ -98,8 +100,8 @@ pub fn mapNewUserPageEnsureFor(pml4_phys: u64, virt: u64, flags: paging.PageFlag
 
 // User-ELF / spawn -alueen alku — erillinen PD-kopiointi forkissa.
 const USER_ASPACE_BASE: u64 = 0xFFFFFFFF90000000;
-// Montako 4K-sivua user-heap/spawn-sloteille varataan (slot 0..127).
-const USER_ASPACE_PAGE_COUNT: u64 = 128;
+// Montako 4K-sivua user-heap/spawn-sloteille varataan (slot 0..191, ELF @ slot 144).
+const USER_ASPACE_PAGE_COUNT: u64 = 192;
 
 // Luo prosessin oma PML4 — fork kernel + erillinen user-haara (Vaihe 25).
 pub fn createProcessPageTable() ?u64 {
@@ -111,6 +113,23 @@ pub fn createProcessPageTable() ?u64 {
         USER_ASPACE_PAGE_COUNT,
         allocFramePhys,
     );
+}
+
+// Eristä spawn/user-ELF PT — estää usean prosessin jaetun PTE-aliasingin (Vaihe 25/26).
+pub fn isolateSpawnPageTable(pml4_phys: u64, virt: u64) bool {
+    // Korvaa jaettu PT tyhjällä ennen ELF-kopiointia.
+    return paging.isolateUserPtForVirt(pml4_phys, hhdm_offset, virt, allocFramePhys);
+}
+
+// Varmista spawn-VA:n PDE/PT ja eristä ennen ELF-latausta.
+pub fn prepareSpawnPageTable(pml4_phys: u64, virt: u64) void {
+    // Luo sivutaulut tarvittaessa — yksi kosketus spawn-virtuaaliosoitteeseen.
+    const flags = paging.PageFlags{ .present = 1, .writable = 1, .user = 1 };
+    _ = mapNewUserPageEnsureFor(pml4_phys, virt, flags);
+    // Korvaa jaettu PT prosessikohtaisella tyhjällä PT:llä.
+    if (!isolateSpawnPageTable(pml4_phys, virt)) {
+        log.err("Spawn PT isolate failed");
+    }
 }
 
 // Aktivoi prosessin osoiteavaruus — tallenna kernel CR3 ensimmäisellä kerralla.

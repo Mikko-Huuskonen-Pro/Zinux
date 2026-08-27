@@ -492,15 +492,15 @@ zig build boot-test
 
 ---
 
-## Vaihe 26 — Scheduler + prosessit ⬜
+## Vaihe 26 — Scheduler + prosessit ✅
 
 **Tavoite**: Timer-preempt vaihtaa prosessia; useita ring 3 -prosesseja vuorottelee (ei vain peräkkäinen `enterUserAs`).
 
 | # | Tehtävä | Tiedosto | Tila |
 |---|---------|----------|------|
-| 26.1 | Prosessi → säie(t) prosessitaulukossa | `process_core.zig`, `thread.zig` | ⬜ Process threads OK |
-| 26.2 | Timer IRQ → prosessinvaihto | `scheduler.zig`, `idt.zig` | ⬜ Timer preempt OK |
-| 26.3 | Boot-testi: kaksi prosessia vuorottelee | boot-testit | ⬜ Preempt OK |
+| 26.1 | Prosessi → säie(t) prosessitaulukossa | `process_thread.zig`, `process_scheduler.zig` | ✅ Process threads OK |
+| 26.2 | Timer IRQ → prosessinvaihto | `process_scheduler.zig`, `timer_irq.S` | ✅ Timer preempt OK |
+| 26.3 | Boot-testi: kaksi prosessia vuorottelee | `preempt_syscall.zig` | ✅ Preempt OK |
 
 **Testi**:
 ```bash

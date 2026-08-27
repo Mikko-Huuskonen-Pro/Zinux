@@ -23,6 +23,10 @@ const spawn_child_exit_elf = @embedFile("loader/spawn_child_exit_prog.bin");
 const address_space_a_elf = @embedFile("loader/address_space_a_prog.bin");
 // Upotettu address space B — sama VA kuin A (Vaihe 25).
 const address_space_b_elf = @embedFile("loader/address_space_b_prog.bin");
+// Upotettu preempt A — timer-preempt demo (Vaihe 26).
+const preempt_a_elf = @embedFile("loader/preempt_a_prog.bin");
+// Upotettu preempt B — timer-preempt demo (Vaihe 26).
+const preempt_b_elf = @embedFile("loader/preempt_b_prog.bin");
 
 // Embedded ELF -tunniste: spawn-lapsi A.
 pub const SPAWN_ID_CHILD_A: u64 = 0;
@@ -34,6 +38,10 @@ pub const SPAWN_ID_EXIT: u64 = 2;
 pub const SPAWN_ID_ASPACE_A: u64 = 3;
 // Embedded ELF -tunniste: address space demo B (Vaihe 25).
 pub const SPAWN_ID_ASPACE_B: u64 = 4;
+// Embedded ELF -tunniste: preempt demo A (Vaihe 26).
+pub const SPAWN_ID_PREEMPT_A: u64 = 5;
+// Embedded ELF -tunniste: preempt demo B (Vaihe 26).
+pub const SPAWN_ID_PREEMPT_B: u64 = 6;
 // Sama virtuaalinen latausosoite molemmille address space -lapsille.
 pub const ADDRESS_SPACE_LOAD_VADDR: u64 = 0xFFFFFFFF90090000;
 
@@ -47,6 +55,10 @@ const SPAWN_CHILD_EXIT_STACK_SLOT: u64 = 115;
 const SPAWN_ASPACE_A_STACK_SLOT: u64 = 116;
 // Pinon heap-slot address space B (slot 117).
 const SPAWN_ASPACE_B_STACK_SLOT: u64 = 117;
+// Pinon heap-slot preempt A (slot 118).
+const SPAWN_PREEMPT_A_STACK_SLOT: u64 = 118;
+// Pinon heap-slot preempt B (slot 119).
+const SPAWN_PREEMPT_B_STACK_SLOT: u64 = 119;
 
 // Luo uusi prosessi upotetusta ELF:stä — palauttaa pid tai null.
 pub fn spawnEmbedded(id: u64) ?u64 {
@@ -62,6 +74,10 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_ASPACE_A => address_space_a_elf,
         // Address space B — sama VA kuin A (Vaihe 25).
         SPAWN_ID_ASPACE_B => address_space_b_elf,
+        // Preempt A — tulostaa 'A' silmukassa (Vaihe 26).
+        SPAWN_ID_PREEMPT_A => preempt_a_elf,
+        // Preempt B — tulostaa 'B' silmukassa (Vaihe 26).
+        SPAWN_ID_PREEMPT_B => preempt_b_elf,
         // Tuntematon tunniste.
         else => return null,
     };
@@ -77,6 +93,10 @@ pub fn spawnEmbedded(id: u64) ?u64 {
         SPAWN_ID_ASPACE_A => SPAWN_ASPACE_A_STACK_SLOT,
         // Address space B pinosivu slot 117.
         SPAWN_ID_ASPACE_B => SPAWN_ASPACE_B_STACK_SLOT,
+        // Preempt A pinosivu slot 118.
+        SPAWN_ID_PREEMPT_A => SPAWN_PREEMPT_A_STACK_SLOT,
+        // Preempt B pinosivu slot 119.
+        SPAWN_ID_PREEMPT_B => SPAWN_PREEMPT_B_STACK_SLOT,
         // Tuntematon tunniste.
         else => return null,
     };
@@ -86,6 +106,10 @@ pub fn spawnEmbedded(id: u64) ?u64 {
     if (!process.setParentPid(pid, process.currentPid())) return null;
     // Luo prosessin oma PML4 — syväkopio kernelistä (Vaihe 25).
     const pml4 = vmm.createProcessPageTable() orelse return null;
+    // Eristä sama-VA spawn-ELF (address space / preempt) — ei spawn-lapsia 0/1.
+    if (id >= SPAWN_ID_ASPACE_A) {
+        vmm.prepareSpawnPageTable(pml4, ADDRESS_SPACE_LOAD_VADDR);
+    }
     // Tallenna CR3 prosessitaulukkoon.
     if (!process.setPageTable(pid, pml4)) return null;
     // Lataa ELF segmentit + pino prosessin osoiteavaruuteen.

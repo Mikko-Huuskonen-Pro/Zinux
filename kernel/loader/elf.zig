@@ -43,10 +43,23 @@ const USER_RW_FLAGS = paging.PageFlags{
     .user = 1,
 };
 
-// Kartoita yksi 4 KiB sivu segmentille — älä ylikirjoita jo kartoitettua sivua.
+// Kartoita yksi 4 KiB sivu segmentille — prosessille aina uusi kehys jos ei vielä kartoitettu.
 fn mapUserPage(virt: u64, executable: bool, pml4_phys: u64) bool {
-    // Tarkista onko sivu jo kartoitettu (useat PT_LOAD samalla sivulla).
+    // Tarkista onko sivu jo kartoitettu tässä latauksessa / kernelissä.
     const already = paging.getPteRaw(pml4_phys, vmm.hhdm(), virt) != null;
+    // Prosessin osoiteavaruus — uusi PMM-kehys (prepareSpawnPageTable tyhjensi jaetun PT:n).
+    if (pml4_phys != vmm.pml4Phys()) {
+        if (!already) {
+            if (!vmm.mapNewUserPageEnsureFor(pml4_phys, virt, USER_RW_FLAGS)) return false;
+        }
+        if (executable) {
+            return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, true);
+        }
+        return paging.setUserPagePath(pml4_phys, vmm.hhdm(), virt, false);
+    }
+    // Kernel PML4 — alkuperäinen polku.
+    // Tarkista onko sivu jo kartoitettu (useat PT_LOAD samalla sivulla).
+    // const already yllä
     // Uusi sivu — allokoi PMM:stä ja kartoita writable latausta varten.
     if (!already) {
         if (!vmm.mapNewUserPageEnsureFor(pml4_phys, virt, USER_RW_FLAGS)) return false;
