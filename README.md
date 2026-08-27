@@ -147,7 +147,7 @@ The repository contains the canonical 1.0 requirements in:
 Every requirement must be satisfied before the Zinux 1.0 Gate turns green.
 
 The GitHub Actions workflow checks this gate on every change.
-
+```
 Until every requirement is satisfied:
 
 ```text
