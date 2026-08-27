@@ -161,9 +161,9 @@ When every requirement is satisfied:
 
 Zinux 1.0    🟢 READY
 
-
+```
 The initial requirements are: 
-
+``` text
 Zinux 1.0 requires:
 
 [ ] Kernel boots on x86_64
@@ -203,9 +203,6 @@ zig build test
 ```
 
 ## Kehitysvaihe
-
-Projekti on **Vaihe 1** (boot & tulostus): Limine requestit, UART/VGA-ajurit,
-ISO/QEMU build-stepit. Seuraava askel on **Vaihe 2** — GDT, IDT, paging, PMM.
 
 Katso [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
 
