@@ -60,3 +60,8 @@ test {
 test {
     _ = @import("stack_canary_test.zig");
 }
+
+// Tuo KASLR-ydin-yksikkötestit.
+test {
+    _ = @import("kaslr_test.zig");
+}

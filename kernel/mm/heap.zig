@@ -10,18 +10,20 @@ const core = @import("heap_core.zig");
 const paging = @import("../arch/x86_64/paging.zig");
 // Tuo VMM — uusien sivujen kartoitus heap-kasvuun.
 const vmm = @import("vmm.zig");
+// Tuo KASLR — runtime heap-alueen alku slide:n jälkeen.
+const kaslr = @import("../arch/x86_64/kaslr.zig");
 
 // Sivukoko — sama kuin paging.PAGE_SIZE.
 const PAGE_SIZE: usize = paging.PAGE_SIZE;
-// Heapin virtuaalinen alkuosoite — kernel higher-half -PML4:n sisällä (Limine PDPT 510).
+// Heapin linkitysalku — kiinteä origin ennen KASLR-slidea (dokumentaatio).
 pub const HEAP_START: u64 = 0xFFFFFFFF90000000;
 // Aluksi kartoitettavien sivujen määrä (4 sivua = 16 KiB).
 const INITIAL_PAGES: usize = 4;
 
 // Kartoita yksi uusi sivu heap-alueen loppuun ja rekisteröi se ytimelle.
 fn growHeap() bool {
-    // Laske uuden sivun virtuaaliosoite nykyisen heap-koon perusteella.
-    const virt = HEAP_START + core.totalSize();
+    // Laske uuden sivun virtuaaliosoite KASLR-slidetusta alusta.
+    const virt = kaslr.heapBase() + core.totalSize();
     // Kartoita uusi sivu allokoiden kehyksen ja sivutaulut PMM:stä.
     if (!vmm.mapNewPageEnsure(virt, vmm.KERNEL_DATA_FLAGS)) return false;
     // Osoitin uuden sivun alkuun.

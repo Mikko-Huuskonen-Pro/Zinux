@@ -45,6 +45,23 @@ pub const HhdmRequest = extern struct {
     response: ?*HhdmResponse = null,
 };
 
+// Executable address -vastaus — Limine raportoi kernelin load-osoitteet.
+pub const ExecutableAddressResponse = extern struct {
+    // Vastauksen revisio.
+    revision: u64,
+    // Suoritettavan fyysinen alku.
+    physical_base: u64,
+    // Suoritettavan virtuaalinen alku (KASLR/PIE).
+    virtual_base: u64,
+};
+
+// Executable address -pyyntö — kernel virtual_base boot-entropiaan.
+pub const ExecutableAddressRequest = extern struct {
+    id: [4]u64 = id(0x71ba76863cc55f63, 0xb2644a48c516a487),
+    revision: u64 = 0,
+    response: ?*ExecutableAddressResponse = null,
+};
+
 pub const FramebufferMemoryModel = enum(u8) {
     rgb = 1,
     _,

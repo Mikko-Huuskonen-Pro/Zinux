@@ -10,7 +10,7 @@ const gdt = @import("gdt.zig");
 const vmm = @import("../../mm/vmm.zig");
 // Tuo sivulippujen rakenne.
 const paging = @import("paging.zig");
-// Tuo heap-alueen alku — käyttäjäsivut heapin jälkeen (4K-sivutaulut).
+// Tuo heap-alue — kiinteät user-testi osoitteet (slot × PAGE).
 const heap = @import("../../mm/heap.zig");
 // Tuo lokitus boot-viesteihin.
 const log = @import("../../lib/log.zig");
@@ -19,7 +19,7 @@ const user_access = @import("user_access.zig");
 
 // Sivujen offset heapin alusta — yli INITIAL_PAGES (4) + marginaali.
 const USER_PAGE_SLOT: u64 = 16;
-// Käyttäjäkoodisivu — Limine higher-half 4K-taulut (ei 2 MiB huge).
+// Käyttäjäkoodisivu — kiinteä linkitysosoite (ei slide: user-ELF abs-addr).
 const USER_CODE_ADDR: u64 = heap.HEAP_START + USER_PAGE_SLOT * paging.PAGE_SIZE;
 // Käyttäjäpinon sivu — seuraava 4 KiB sivu.
 const USER_STACK_ADDR: u64 = USER_CODE_ADDR + paging.PAGE_SIZE;
@@ -67,10 +67,8 @@ fn setupUserPages() bool {
     // Kartoita koodi- ja pino-sivut PMM:stä (user-sivutaulupolku).
     if (!vmm.mapNewUserPageEnsure(USER_CODE_ADDR, USER_PAGE_FLAGS)) return false;
     if (!vmm.mapNewUserPageEnsure(USER_STACK_ADDR, USER_PAGE_FLAGS)) return false;
-    // Varmista U-bitti koko polussa; koodisivu myös suoritettava (NX=0).
     if (!paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), USER_CODE_ADDR, true)) return false;
     if (!paging.setUserPagePath(vmm.pml4Phys(), vmm.hhdm(), USER_STACK_ADDR, false)) return false;
-    // Kopioi userEntry + userHello user-sivulle (SMAP: stac ennen user-kirjoitusta).
     const dst: [*]u8 = @ptrFromInt(USER_CODE_ADDR);
     const src: [*]const u8 = @ptrFromInt(code_start);
     user_access.stac();
@@ -104,7 +102,7 @@ pub fn runBootTest() void {
         log.err("Usermode page setup failed");
         return;
     }
-    // Siirry ring 3:een kopioituun blobiin.
+    // Siirry ring 3:een kopioituun blobiin (slidattu osoite).
     enterUser(USER_CODE_ADDR, USER_STACK_TOP);
     // Paluu sys_test_return ret:llä.
     log.info("Usermode test OK");

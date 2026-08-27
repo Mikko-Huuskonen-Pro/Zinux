@@ -16,7 +16,7 @@ const usermode = @import("../arch/x86_64/usermode.zig");
 const log = @import("../lib/log.zig");
 // Tuo user_access — stac/clac SMAP-yhteensopivuuteen user-sivuille.
 const user_access = @import("../arch/x86_64/user_access.zig");
-// Tuo heap-alue — pinon virtuaaliosoitteet.
+// Tuo heap — kiinteät user-ELF linkitysosoitteet (slot 0 = HEAP_START).
 const heap = @import("../mm/heap.zig");
 
 // Upotettu loader-testi ELF — build.zig kopioi user-bin:n tähän ennen kernel-käännöstä.
@@ -86,7 +86,7 @@ fn mapSegmentRange(vaddr: u64, mem_size: u64, executable: bool) bool {
 fn copySegmentData(seg: core.LoadSegment, elf_data: []const u8) bool {
     // Segmentin file data ELF-blobissa.
     if (seg.file_offset + seg.file_size > elf_data.len) return false;
-    // Kohde muistissa segmentin vaddr:ssa.
+    // Kohde muistissa segmentin linkitys-vaddr:ssa (user-ELF ei relocatable).
     const dst: [*]u8 = @ptrFromInt(seg.vaddr);
     // Lähde ELF-blobissa.
     const src = elf_data[seg.file_offset..][0..seg.file_size];
@@ -108,7 +108,7 @@ fn copySegmentData(seg: core.LoadSegment, elf_data: []const u8) bool {
 
 // Laske pinon sivun virtuaalinen alku annetusta heap-slotista.
 fn stackBaseForSlot(stack_slot: u64) u64 {
-    // HEAP_START + slot * 4 KiB.
+    // Kiinteä HEAP_START + slot × 4 KiB (user-ELF linkitysosoitteet).
     return heap.HEAP_START + stack_slot * paging.PAGE_SIZE;
 }
 
@@ -130,7 +130,7 @@ fn loadParsed(parsed: core.ParsedElf, elf_data: []const u8, stack_base: u64) boo
     for (parsed.segments) |seg| {
         // Suoritettavuus PF_X-bitistä.
         const executable = core.segmentExecutable(seg);
-        // Kartoita sivut segmentin virtuaalialueelle.
+        // Kartoita sivut segmentin linkitys-vaddr:iin.
         if (!mapSegmentRange(seg.vaddr, seg.mem_size, executable)) return false;
         // Kopioi tiedot ELF-blobista segmenttiin.
         if (!copySegmentData(seg, elf_data)) return false;
@@ -151,7 +151,7 @@ pub fn loadElfWithStack(elf_data: []const u8, stack_slot: u64) ?LoadedImage {
     const stack_base = stackBaseForSlot(stack_slot);
     // Kartoita segmentit ja pino.
     if (!loadParsed(parsed, elf_data, stack_base)) return null;
-    // Palauta hyppypiste ja pinon yläreuna.
+    // Palauta hyppypiste ja pinon yläreuna (slidattu entry).
     return .{
         .entry = parsed.entry,
         .stack_top = stackTopForSlot(stack_slot),

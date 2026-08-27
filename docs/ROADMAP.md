@@ -135,7 +135,7 @@ zig build run
 |---|---------|
 | 7.1 | SMEP/SMAP aktivointi | ✅ CR4 + stac/clac + SMEP/SMAP hardening OK |
 | 7.2 | Stack canaries kernelissä | ✅ early/syscall/TSS/thread + Stack canary OK |
-| 7.3 | KASLR (satunnainen kernel-base) |
+| 7.3 | KASLR (satunnainen kernel-base) | ✅ RDTSC+HHDM heap slide + KASLR OK |
 | 7.4 | Capability-audit logging |
 | 7.5 | Fuzzing: syscall-rajapinta |
 

@@ -41,6 +41,14 @@ pub fn getBootInfo() BootInfo {
     return info;
 }
 
+// Palauta Limine executable virtual_base tai link-osoite jos pyyntö puuttuu.
+pub fn getExecutableVirtualBase(default: u64) u64 {
+    // Executable address -vastaus Limine 12.x.
+    const resp = limine_requests.executable_addr.response orelse return default;
+    // Bootloaderin raportoima virtual_base.
+    return resp.virtual_base;
+}
+
 // Palauta Limine-muistikartta tai null jos puuttuu.
 pub fn getMemoryMapEntries() ?[]*limine.MemoryMapEntry {
     const resp = limine_requests.memmap.response orelse return null;

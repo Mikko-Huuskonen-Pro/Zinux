@@ -50,6 +50,8 @@ const usermode = @import("arch/x86_64/usermode.zig");
 const hardening = @import("arch/x86_64/hardening.zig");
 // Tuo pinon canaryt (Vaihe 7.2).
 const stack_canary = @import("arch/x86_64/stack_canary.zig");
+// Tuo KASLR — satunnainen user/heap-slide (Vaihe 7.3).
+const kaslr = @import("arch/x86_64/kaslr.zig");
 
 // Early boot -pino — 16 KiB, 16-tavun aligned (x86_64 vaatimus).
 extern var early_stack: [16 * 1024]u8 align(16);
@@ -114,8 +116,12 @@ fn kmain() noreturn {
     vmm.init(boot_info.hhdm_offset);
     // Vahvista VMM-alustus onnistui.
     log.info("VMM initialized");
-    // Alusta kernel heap — kartoittaa INITIAL_PAGES sivua HEAP_START:iin.
+    // Laske KASLR-slide ennen heap/user-kartoitusta (Vaihe 7.3).
+    kaslr.init(boot_info.hhdm_offset);
+    // Alusta kernel heap — kartoittaa INITIAL_PAGES sivua slidattuun alkuun.
     heap.init();
+    // Vahvista KASLR-slide aktivoitunut.
+    kaslr.runBootTest();
     // Vahvista heap-alustus onnistui.
     log.info("Heap initialized");
     // Aja Vaihe 2 integraatiotestit (100 kehystä + heap smoke test).

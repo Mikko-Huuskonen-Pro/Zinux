@@ -5,6 +5,7 @@ const limine = @import("limine_protocol.zig");
 pub const LimineRequests = extern struct {
     base: limine.BaseRevision,
     hhdm: limine.HhdmRequest,
+    executable_addr: limine.ExecutableAddressRequest,
     memmap: limine.MemoryMapRequest,
     fb: limine.FramebufferRequest,
     smp: limine.SmpRequest,
@@ -17,6 +18,7 @@ export var limine_requests: LimineRequests
     linksection(".limine_requests") = .{
     .base = .init(0),
     .hhdm = .{},
+    .executable_addr = .{},
     .memmap = .{},
     .fb = .{},
     .smp = .{},
