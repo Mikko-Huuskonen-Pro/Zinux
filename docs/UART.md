@@ -19,7 +19,7 @@ This experiment is expected to guide the architecture of Zinux for the first mon
 1. The hypothesis
 
 Traditional operating systems generally treat a driver as a persistent software component.
-
+```
 Operating System
         │
         ├── UART driver
@@ -27,13 +27,13 @@ Operating System
         ├── network driver
         ├── camera driver
         └── thousands of others
-
+```
 Zinux explores a different model:
 
 Do not necessarily ship every possible driver. Build the hardware-specific logic when a task requires it.
 
 The intended model is:
-
+```
 Hardware
     │
     ▼
@@ -59,7 +59,7 @@ Capability sandbox
     │
     ▼
 Hardware
-
+```
 The driver is therefore treated less like a permanent OS component and more like a task-specific artifact.
 
 ⸻
@@ -181,7 +181,7 @@ These should preferably be implemented by Zinux itself.
 The AI should concentrate on the part that actually requires understanding the hardware.
 
 Conceptually:
-
+```
 Traditional driver
 ┌──────────────────────────────┐
 │ Boilerplate                  │
@@ -201,9 +201,9 @@ Traditional driver
 │ timing                       │
 │ device protocol              │
 └──────────────────────────────┘
-
+```
 Zinux aims for:
-
+```
 Zinux framework
 ┌──────────────────────────────┐
 │ Boilerplate                  │
@@ -217,7 +217,7 @@ Zinux framework
 │ only what this hardware      │
 │ and this task actually need  │
 └──────────────────────────────┘
-
+```
 The first UART experiment should measure whether this separation is useful.
 
 ⸻
@@ -231,7 +231,7 @@ Send the byte 0x41 through a UART.
 The objective is not to implement a complete POSIX-compatible serial driver.
 
 The objective is to prove the smallest complete path:
-
+```
 Task
  ↓
 Hardware documentation
@@ -249,7 +249,7 @@ Validation
 Sandbox
  ↓
 UART
-
+```
 If this cannot be made reliable for a simple UART, the broader AI-native driver hypothesis needs to be reconsidered before adding complexity.
 
 ⸻
@@ -293,7 +293,7 @@ Requested
 Forbidden
 
 For example:
-
+```
 KNOWN
 UART base address:
     0x3F8
@@ -314,7 +314,7 @@ DMA.
 Network.
 Filesystem.
 Other MMIO.
-
+```
 This is intentional.
 
 A major goal of the experiment is to discover whether the AI can work effectively when it is not allowed to silently invent capabilities or assumptions.
