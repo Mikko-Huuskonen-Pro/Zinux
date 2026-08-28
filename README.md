@@ -74,6 +74,25 @@ The kernel then decides which capabilities can actually be granted.
 
 The AI may request a capability, but it cannot grant one to itself.
 
+## Standing on Linux's shoulders
+
+Zinux would not exist in its current form without the extraordinary
+engineering effort behind Linux and its ecosystem.
+
+For more than three decades, Linux developers have built and maintained
+an enormous body of knowledge about real hardware: drivers, protocols,
+firmware, hardware quirks, failure modes and countless devices.
+
+We do not intend to throw that work away.
+
+Where Linux has already solved a problem well, Zinux can build on it.
+The linux-zinux repository provides a path to preserve and use that
+existing hardware support while Zinux explores a fundamentally different
+approach to drivers.
+
+> **35 years of engineering is not something to replace. It is something
+> to stand on.**
+
 ### Plan, Policy, Implementation
 
 Zinux separates three concepts:
