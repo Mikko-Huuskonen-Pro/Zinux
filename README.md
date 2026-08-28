@@ -83,7 +83,7 @@ For more than three decades, Linux developers have built and maintained
 an enormous body of knowledge about real hardware: drivers, protocols,
 firmware, hardware quirks, failure modes and countless devices.
 
-We do not intend to throw that work away.
+We do not intend to throw that work away:https://github.com/Mikko-Huuskonen-Pro/linux-zinux
 
 Where Linux has already solved a problem well, Zinux can build on it.
 The linux-zinux repository provides a path to preserve and use that
