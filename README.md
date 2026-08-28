@@ -245,7 +245,7 @@ Katso [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
 
 Zinux
 
-Copyright (C) 2026 Zinux contributors
+Copyright (C) 2026 Mikko Huuskonen
 
 This project is licensed under the GNU General Public License
 version 3 or later (GPL-3.0-or-later).
