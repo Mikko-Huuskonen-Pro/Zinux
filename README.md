@@ -218,30 +218,30 @@ The long-term intention is for these requirements to become backed by actual aut
 
 1.0 is not a promise. It is a state the system must prove.
 ```
-## Kääntäminen
+## Build
 
 ```bash
-# Asenna Zig 0.16.0
+# Download Zig 0.16.0
 # curl -fsSL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar xJ
 
-# Käännä kernel
+# Build kernel
 zig build
 
-# Luo bootattava ISO (vaatii xorriso + curl + cc)
+# Create ISO (depencancy xorriso + curl + cc)
 zig build iso
 
-# Käynnistä QEMU:ssa (vaatii qemu-system-x86_64)
+# Start QEMU (depencancy qemu-system-x86_64)
 zig build run
 
-# Aja host-yksikkotestit
+# Run tests
 zig build test
 ```
 
-## Kehitysvaihe
+## Progress
 
-Katso [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
+ [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
 
-## Lisenssi
+## Licence
 
 Zinux
 
