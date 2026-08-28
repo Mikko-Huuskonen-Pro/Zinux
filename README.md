@@ -243,4 +243,10 @@ Katso [ROADMAP.md](docs/ROADMAP.md) koko tiekartta.
 
 ## Lisenssi
 
-MIT — katso [LICENSE](LICENSE).
+Zinux
+
+Copyright (C) 2026 Zinux contributors
+
+This project is licensed under the GNU General Public License
+version 3 or later (GPL-3.0-or-later).
+ [LICENSE](LICENSE).
