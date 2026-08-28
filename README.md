@@ -251,6 +251,7 @@ This project is licensed under the GNU General Public License
 version 3 or later (GPL-3.0-or-later).
  [LICENSE](LICENSE).
 
-This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This program comes with ABSOLUTELY NO WARRANTY; for details see the license. 
 This is free software, and you are welcome to redistribute it
-under certain conditions; type `show c' for details.
+This is free software, and you are welcome to redistribute it under the
+terms of the GNU General Public License version 3 or later.
