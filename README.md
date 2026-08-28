@@ -250,3 +250,7 @@ Copyright (C) 2026 Mikko Huuskonen
 This project is licensed under the GNU General Public License
 version 3 or later (GPL-3.0-or-later).
  [LICENSE](LICENSE).
+
+This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `show c' for details.
