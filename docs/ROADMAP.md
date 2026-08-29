@@ -514,6 +514,122 @@ zig build boot-test
 
 ## Vaihe 27 — Cross-process IPC userland-demo ⬜
 
+## Vaihe 29 — Plugin-arkkitehtuuri ⬜
+
+Tavoite: Zinuxista tehdään extensible operating system, jossa
+järjestelmän toiminnallisuudet voidaan tarjota erillisinä,
+capability-rajoitettuina plugineina.
+
+Periaate:
+
+> Everything is a plugin.
+
+Plugin ei tarkoita vain sovellusta. Plugin voi tarjota
+ajureita, tiedostojärjestelmiä, verkkotoimintoja, laitteistotukea
+tai kokonaisen käyttöjärjestelmä-alijärjestelmän.
+
+Zinux Core säilyy mahdollisimman pienenä ja luotettuna ytimenä.
+
+29.1  Plugin ABI
+       Määritellään Zinux-pluginin minimirajapinta.
+
+29.2  Plugin manifest
+       Plugin ilmoittaa nimensä, versionsa, tarvitsemansa
+       capabilityt ja tarjoamansa palvelut.
+
+29.3  Plugin lifecycle
+       load → validate → start → stop → unload
+
+29.4  Capability-based plugin permissions
+       Plugin saa vain manifestissa määritellyt resurssit.
+
+29.5  Userland plugin process
+       Plugin suoritetaan käyttäjätilassa aina kun mahdollista.
+
+29.6  Plugin registry
+       Zinux löytää ja rekisteröi asennetut pluginet.
+
+29.7  Plugin IPC
+       Plugin kommunikoi Zinux Coren ja muiden pluginien kanssa
+       capability-pohjaisen IPC:n kautta.
+
+Testi:
+
+    Zinux boot
+      → plugin registry initialized
+      → test plugin loaded
+      → capabilities granted
+      → plugin starts
+      → IPC request succeeds
+      → plugin stops
+
+## Vaihe 30 — linux-zinux: ensimmäinen järjestelmäplugin ⬜
+
+Tavoite: Linuxin olemassa oleva hardware support integroidaan
+Zinuxiin ensimmäisenä ulkoisena pluginina.
+
+30.1  linux-zinux plugin manifest
+       Plugin identiteetti, versio ja capability-vaatimukset.
+
+30.2  Zig plugin wrapper
+       Zinuxin ja linux-zinuxin välinen minimaalinen Zig ABI.
+
+30.3  Linux hardware service
+       Linuxin tarjoama hardware support altistetaan
+       Zinuxille plugin-palveluna.
+
+30.4  IPC bridge
+       Zinux-prosessit voivat pyytää linux-zinuxilta
+       hardware-palveluita capabilityjen kautta.
+
+30.5  Capability isolation
+       Linux-plugin ei saa Zinux Corelle kuuluvaa
+       rajoittamatonta pääsyä.
+
+30.6  QEMU integration test
+       Zinux käynnistyy → linux-zinux plugin käynnistyy →
+       plugin ilmoittaa capabilityt → hardware service vastaa.
+
+30.7  Documentation
+       Dokumentoidaan linux-zinux ensimmäisenä
+       Zinux system pluginina.
+
+Testi:
+
+    Zinux
+      │
+      ├── Core
+      │
+      └── linux-zinux plugin
+             │
+             └── Linux hardware support
+
+    Expected:
+    [Zinux] Plugin registry OK
+    [Zinux] linux-zinux detected
+    [Zinux] linux-zinux capabilities OK
+    [Zinux] linux-zinux IPC OK
+
+
+## Vaihe 31 — AI-generated plugins ⬜
+
+Tavoite: Paikallinen AI voi rakentaa uuden pluginin
+laitteelle tai järjestelmäpalvelulle ilman, että Zinux
+Corea muutetaan.
+
+31.1  Device description
+31.2  Driver Plan
+31.3  Capability planning
+31.4  Plugin source generation
+31.5  Automated build
+31.6  Static validation
+31.7  QEMU/sandbox validation
+31.8  Capability audit
+31.9  Plugin installation
+31.10 Plugin rollback
+
+
+
 **Tavoite**: Userland-prosessi spawnaa toisen, siirtää recv-capabilityn, send → recv ilman kernel-orchestraatiota.
 
 | # | Tehtävä | Tiedosto | Tila |
