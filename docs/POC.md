@@ -13,7 +13,7 @@ Everything that does not need to be part of the trusted core can be a plugin.
 The resulting system should run continuously on real hardware and host the Zinux website.
 
 The first demonstration should be deliberately small:
-'''
+```
 HP Stream
     │
     ▼
@@ -28,7 +28,7 @@ Zinux
               │
               ▼
         Zinux Web Page
-'''
+```
 ⸻
 
 Proof of Concept Goals
@@ -55,7 +55,7 @@ The final result should be a physical machine running Zinux and serving a real w
 
 ⸻
 
-Phase 1 — Hardware
+### Phase 1 — Hardware
 
 Target hardware:
 
@@ -77,7 +77,7 @@ The goal is to demonstrate that Zinux does not require powerful hardware to prov
 
 ⸻
 
-Phase 2 — First Zinux Boot
+### Phase 2 — First Zinux Boot
 
 Goal:
 
@@ -95,7 +95,7 @@ Tasks:
 * [ ]	Reach a stable kernel state
 
 Success condition:
-
+```
 HP Stream
     ↓
 Zinux
@@ -103,10 +103,10 @@ Zinux
 Kernel initialized
     ↓
 System running
-
+```
 ⸻
 
-Phase 3 — Minimal Runtime
+### Phase 3 — Minimal Runtime
 
 Zinux needs enough functionality to run independent system components.
 
@@ -126,7 +126,7 @@ The goal is to provide the minimum foundation required by Zinux plugins.
 
 ⸻
 
-Phase 4 — Plugin System
+### Phase 4 — Plugin System
 
 Implement the first minimal plugin architecture.
 
@@ -140,7 +140,7 @@ provided services
 lifecycle
 
 Initial lifecycle:
-
+```
 discover
    ↓
 validate
@@ -156,7 +156,7 @@ running
 stop
    ↓
 unload
-
+```
 Tasks:
 
 * [ ]	Define minimal plugin interface
@@ -171,7 +171,7 @@ Tasks:
 
 ⸻
 
-Phase 5 — Uptime Plugin
+### Phase 5 — Uptime Plugin
 
 Create the first useful Zinux plugin.
 
@@ -205,7 +205,7 @@ The purpose is to prove that one plugin can provide a service to another plugin.
 
 ⸻
 
-Phase 6 — Web Server Plugin
+### Phase 6 — Web Server Plugin
 
 Create the second plugin.
 
@@ -218,7 +218,7 @@ The web server should:
 * [ ]	Communicate with the uptime plugin through IPC
 
 The web server should not directly access the uptime implementation.
-
+```
 Instead:
 
 HTTP request
@@ -238,10 +238,10 @@ Web Plugin
      │
      ▼
 HTTP response
-
+```
 ⸻
 
-Phase 7 — Zinux Website
+### Phase 7 — Zinux Website
 
 Create the first Zinux system status page.
 
@@ -267,7 +267,7 @@ The uptime value must come from the uptime plugin.
 
 ⸻
 
-Phase 8 — Physical Network Test
+### Phase 8 — Physical Network Test
 
 Connect the HP Stream to a real network.
 
@@ -298,7 +298,7 @@ Zinux
 
 ⸻
 
-Phase 9 — Long-Term Test
+### Phase 9 — Long-Term Test
 
 The system should remain running continuously.
 
@@ -324,12 +324,12 @@ Long-term uptime is not required for the first implementation, but it is an impo
 
 ⸻
 
-Phase 10 — Plugin Failure Test
+### Phase 10 — Plugin Failure Test
 
 The PoC should also test what happens when a plugin fails.
 
 Example:
-
+```
 Web Plugin
     │
     X
@@ -342,7 +342,7 @@ Zinux Core
     ├── uptime plugin → continues running
     │
     └── web plugin → restarted / isolated
-
+```
 Tasks:
 
 * [ ]	Intentionally terminate the web plugin
@@ -355,14 +355,14 @@ This demonstrates that plugins are components rather than extensions that can co
 
 ⸻
 
-Final Proof
+# Final Proof
 
 The PoC is complete when the following statement is true:
 
 A real computer is running Zinux continuously, and the Zinux website is being served by a plugin while system uptime is provided by another independent plugin through the Zinux IPC and capability system.
 
 The final architecture:
-
+```
                          HP STREAM
                             │
                             ▼
@@ -383,7 +383,7 @@ The final architecture:
                │ HTTP
                ▼
         Zinux Website
-
+```
 ⸻
 
 Why This PoC Matters
@@ -397,15 +397,15 @@ The first Zinux system does not need to contain every driver, filesystem, networ
 It only needs a small trusted core and the components required for its purpose.
 
 A server can therefore be built as:
-
+```
 Zinux
 +
 linux-zinux
 +
 server plugins
-
+```
 while a completely different system could be built as:
-
+```
 Zinux
 +
 flight-control
@@ -415,7 +415,7 @@ sensors
 network
 +
 AI-generated drivers
-
+```
 Both are Zinux systems.
 
 The long-term goal is not to make one enormous operating system containing everything.
