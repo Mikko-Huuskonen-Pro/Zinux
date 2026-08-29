@@ -153,6 +153,275 @@ Prosessi A                    Kernel                     Prosessi B
 
 ---
 
+
+## 6.5 Plugin Architecture
+
+Zinux is designed as an extensible operating system.
+
+The core principle is:
+
+Everything is a plugin.
+
+A plugin is a replaceable component that extends the capabilities of the system without requiring the Zinux core to be modified.
+
+Plugins are not limited to applications. A plugin may provide hardware support, drivers, filesystems, networking, device services, compatibility layers, or other operating-system functionality.
+
+The goal is to keep the Zinux core small, stable, and trusted while allowing the rest of the system to evolve independently.
+
+Core and Plugins
+
+The Zinux architecture is divided into a small trusted core and a collection of optional components.
+
+                         Zinux
+                           │
+                    ┌──────┴──────┐
+                    │ Zinux Core  │
+                    │             │
+                    │ memory      │
+                    │ processes   │
+                    │ IPC         │
+                    │ capabilities│
+                    │ security    │
+                    └──────┬──────┘
+                           │
+                    Plugin Manager
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+     ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
+     │ Plugin  │      │ Plugin  │      │ Plugin  │
+     │ storage │      │ network │      │ linux-  │
+     │         │      │         │      │ zinux   │
+     └─────────┘      └─────────┘      └─────────┘
+
+The core provides the fundamental mechanisms required by plugins:
+
+* process isolation
+* virtual memory
+* IPC
+* capability-based access control
+* resource management
+* plugin lifecycle management
+
+Everything that does not need to be part of the trusted core should be implemented as a plugin.
+
+Capability-Based Plugins
+
+Plugins do not receive unrestricted access to the system.
+
+A plugin declares the resources and capabilities it requires. The Zinux core grants only the permissions that have been approved for that plugin.
+
+For example:
+
+Plugin: camera
+Requested capabilities:
+    device.camera
+    dma
+    interrupts
+Not granted:
+    filesystem.write
+    network
+    microphone
+    arbitrary_memory
+
+This follows the same security principle used throughout Zinux:
+
+A component should receive the minimum authority required to perform its task.
+
+The plugin system therefore extends the capability model rather than bypassing it.
+
+Plugin Lifecycle
+
+Plugins have an explicit lifecycle:
+
+discover
+   │
+   ▼
+validate
+   │
+   ▼
+load
+   │
+   ▼
+grant capabilities
+   │
+   ▼
+start
+   │
+   ▼
+running
+   │
+   ▼
+stop
+   │
+   ▼
+unload
+
+A plugin should be possible to stop, replace, update, or remove without rebuilding the entire operating system whenever its functionality permits it.
+
+Plugin Manifest
+
+Each plugin should provide a manifest describing its identity and requirements.
+
+A future manifest may contain information such as:
+
+name
+version
+ABI version
+required capabilities
+provided services
+dependencies
+architecture
+integrity information
+
+The manifest allows Zinux to determine what a plugin is allowed to do before the plugin is executed.
+
+Plugin Communication
+
+Plugins communicate with the Zinux core and with other plugins through defined interfaces and IPC.
+
+A plugin should not need direct knowledge of the internal implementation of another component.
+
+Plugin A
+    │
+    │ IPC
+    ▼
+Zinux Core
+    │
+    │ IPC
+    ▼
+Plugin B
+
+This creates a stable boundary between components.
+
+The exact plugin ABI is intentionally left open until the plugin subsystem is implemented. The initial implementation should keep the ABI as small and stable as possible.
+
+User-Space First
+
+Whenever possible, plugins should run outside the trusted kernel core.
+
+┌───────────────────────────────────────┐
+│              User Space               │
+│                                       │
+│  ┌──────────┐   ┌──────────┐         │
+│  │ Plugin A │   │ Plugin B │         │
+│  └────┬─────┘   └────┬─────┘         │
+│       │              │               │
+└───────┼──────────────┼───────────────┘
+        │      IPC     │
+┌───────┴──────────────┴───────────────┐
+│               Zinux Core              │
+│                                       │
+│      isolation • IPC • capabilities  │
+└───────────────────────────────────────┘
+
+Hardware or kernel-level functionality that cannot safely operate entirely in user space may require a different mechanism. Such exceptions should remain explicitly isolated and capability-controlled.
+
+Linux as a Plugin
+
+One of the first major applications of the plugin architecture is linux-zinux.
+
+Linux contains decades of hardware support, drivers, and compatibility knowledge. Zinux should not attempt to recreate all of this functionality from scratch.
+
+Instead, Linux can be integrated as a Zinux component through the plugin architecture.
+
+                     Zinux
+                       │
+                ┌──────▼──────┐
+                │ Zinux Core  │
+                └──────┬──────┘
+                       │
+                 Plugin Interface
+                       │
+                ┌──────▼──────┐
+                │ linux-zinux │
+                │   plugin    │
+                └──────┬──────┘
+                       │
+                Linux hardware
+                   support
+
+The linux-zinux project therefore represents an important architectural experiment:
+
+Can decades of Linux hardware support be exposed to Zinux as a replaceable system component?
+
+The answer does not require Zinux to become Linux.
+
+Linux becomes one component that Zinux can use.
+
+AI-Generated Plugins
+
+The plugin architecture also provides the foundation for Zinux’s AI-driven hardware model.
+
+When previously unsupported hardware is detected, a local AI may eventually be able to create a new plugin instead of modifying the Zinux core.
+
+The intended workflow is:
+
+Hardware detected
+       │
+       ▼
+AI analyzes device
+       │
+       ▼
+AI creates a plan
+       │
+       ▼
+Required capabilities identified
+       │
+       ▼
+Plugin generated
+       │
+       ▼
+Build and validation
+       │
+       ▼
+Sandbox testing
+       │
+       ▼
+Capability verification
+       │
+       ▼
+Plugin installed
+
+The AI does not receive unrestricted access to the system.
+
+Instead, the AI first creates a plan describing the smallest set of resources required to perform the task. The resulting plugin is then subject to the same isolation and capability rules as every other plugin.
+
+Evolution Over Time
+
+A Zinux installation is not intended to be a fixed collection of functionality.
+
+New capabilities can be added over time:
+
+Zinux Core
+    │
+    ├── storage plugin
+    ├── network plugin
+    ├── graphics plugin
+    ├── audio plugin
+    ├── robotics plugin
+    ├── linux-zinux plugin
+    └── AI-generated plugins
+
+The operating system can therefore evolve by adding, replacing, or removing components rather than requiring every capability to be permanently built into one monolithic system.
+
+The long-term goal is a system where the trusted core changes slowly, while the surrounding plugin ecosystem can evolve continuously.
+
+Design Principle
+
+The plugin architecture can be summarized in five principles:
+
+1. Keep the core small.
+2. Give components only the capabilities they require.
+3. Prefer isolated user-space components.
+4. Communicate through stable interfaces and IPC.
+5. Allow the system to evolve without rebuilding the entire operating system.
+
+Zinux is therefore not intended to be a finished collection of features.
+
+It is intended to be a small, secure foundation on which the operating system can continuously grow.
+
+
 ## 7. Syscall-rajapinta
 
 - **Mekanismi**: `syscall` / `sysenter` (x86_64) — `arch/x86_64/syscall.zig`
