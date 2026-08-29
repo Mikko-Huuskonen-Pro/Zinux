@@ -232,11 +232,11 @@ Zinux 1.0 requires:
 [ ] Generated driver runs sandboxed
 [ ] Hardware can be dynamically added
 [ ] At least one real robotic device works
-
+```
 The long-term intention is for these requirements to become backed by actual automated tests rather than manual claims.
 
 1.0 is not a promise. It is a state the system must prove.
-```
+
 ## Build
 
 ```bash
