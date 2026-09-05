@@ -244,7 +244,7 @@ zig build test
 ---
 ## Progress
 
-See [ROADMAP.md](docs/ROADMAP.md) for the full roadmap.
+See [ROADMAP.md](https://github.com/Mikko-Huuskonen-Pro/V-in-/blob/main/docs/ROADMAP_EN.md) for the full roadmap.
 
 ---
 ## License
