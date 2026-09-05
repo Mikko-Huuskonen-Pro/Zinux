@@ -1,6 +1,6 @@
-# Zinux
+# ZigFi
 
-**Traditional operating systems stock drivers. Zinux builds them.** 
+**Traditional operating systems stock drivers. Zigfi builds them.** 
 
 ## AI-native driver model
 
@@ -8,11 +8,11 @@ Zinux explores a different model for hardware drivers.
 
 Traditional operating systems accumulate drivers over decades. A driver is usually a permanent software component that must be designed, implemented, tested and shipped before the operating system can use a device.
 
-Zinux asks a different question:
+ZigFi asks a different question:
 
 > What if a driver only needs to exist when a task requires it?
 
-A Zinux driver is therefore not necessarily a permanent piece of the operating system. It can be a small, task-specific implementation generated locally by AI and constrained by the kernel.
+A ZigFi driver is therefore not necessarily a permanent piece of the operating system. It can be a small, task-specific implementation generated locally by AI and constrained by the kernel.
 
 The intended model is:
 
