@@ -1,10 +1,10 @@
-# ZigFi
+# Väinö
 
-**Traditional operating systems stock drivers. Zigfi builds them.** 
+**Traditional operating systems stock drivers. Väinö builds them.** 
 
 ## AI-native driver model
 
-Zinux explores a different model for hardware drivers.
+Väinö explores a different model for hardware drivers.
 
 Traditional operating systems accumulate drivers over decades. A driver is usually a permanent software component that must be designed, implemented, tested and shipped before the operating system can use a device.
 
