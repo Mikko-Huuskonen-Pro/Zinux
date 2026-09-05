@@ -85,7 +85,7 @@ Väinö would not exist in its current form without the extraordinary engineerin
 
 For more than three decades, Linux developers have built and maintained an enormous body of knowledge about real hardware: drivers, protocols, firmware, hardware quirks, failure modes, and countless devices.
 
-We do not intend to throw that work away: [linux-väinö](https://github.com/Mikko-Huuskonen-Pro/linux-zinux)
+We do not intend to throw that work away: [VSL](https://github.com/Mikko-Huuskonen-Pro/VSL)
 
 Where Linux has already solved a problem well, Väinö can build on it.
 The linux-väinö repository provides a path to preserve and use that existing hardware support while Väinö explores a fundamentally different approach to drivers.
